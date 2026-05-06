@@ -1,31 +1,195 @@
 /**
- * Military Scene - 军事管理
+ * Military Scene v2 - 军事管理
+ * 6 unit types with counter system, mercenaries
  */
 import { state } from '../core/gameState.js';
 import { NATION_LIST } from '../data/nations.js';
+import { UNIT_TYPES, COUNTER_TABLE, MERCENARY_TYPES } from '../data/worldData.js';
+
+let _tab = 'army'; // army | counter | mercenary | recruit
 
 export function showMilitary(game) {
   game._clearUI();
   game.scene = 'military';
-  game.ui.createPanel(40, 40, game.w - 80, game.h - 80, '⚔️ 军事');
+  _renderMilitary(game);
+}
 
-  const a = state.army;
-  game.ui.createText(70, 100, `总兵力: ${a.infantry + a.cavalry + a.archers}`, { fontSize: 16 });
-  game.ui.createText(70, 125, `步兵: ${a.infantry}  骑兵: ${a.cavalry}  弓兵: ${a.archers}`);
-  game.ui.createText(70, 150, '士气:');
-  game.ui.createProgressBar(130, 146, 150, 12, a.morale, 100, 0x4CAF50);
+function _renderMilitary(game) {
+  game.ui.createPanel(20, 20, game.w - 40, game.h - 40, '⚔️ 军事管理');
 
-  game.ui.createText(70, 185, '【征兵】', { fontSize: 16, bold: true });
-  game.ui.createButton(90, 210, 140, 32, '征步兵x10', () => { state.recruitSoldiers(10); showMilitary(game); });
-  game.ui.createButton(240, 210, 140, 32, '征步兵x50', () => { state.recruitSoldiers(50); showMilitary(game); });
-
-  game.ui.createText(70, 260, '【军事行动】', { fontSize: 16, bold: true });
-  let y = 290;
-  NATION_LIST.filter(n => !state.alliances.includes(n.id)).slice(0, 8).forEach(n => {
-    game.ui.createText(90, y, `${n.emblem} ${n.name} (军力:${n.military})`,
-      { fill: parseInt(n.color.slice(1), 16) });
-    y += 28;
+  // Tab bar
+  const tabs = ['army|兵力总览', 'counter|克制关系', 'mercenary|雇佣兵', 'recruit|征兵'];
+  let tx = 60;
+  tabs.forEach(t => {
+    const [id, label] = t.split('|');
+    const active = _tab === id;
+    game.ui.createButton(tx, 65, 100, 28, label, () => { _tab = id; _renderMilitary(game); },
+      active ? 0xD4A853 : 0x4A3728, active ? 0x000000 : 0xD4A853);
+    tx += 110;
   });
 
-  game.ui.createButton(game.w / 2 - 60, game.h - 100, 120, 40, '返回', () => game._showMap());
+  // Content area
+  const cx = 50, cy = 100, cw = game.w - 100, ch = game.h - 180;
+  game.ui.createPanel(cx, cy, cw, ch, '', 0x1a1008);
+
+  if (_tab === 'army') _renderArmy(game, cx + 10, cy + 10, cw - 20, ch - 20);
+  else if (_tab === 'counter') _renderCounter(game, cx + 10, cy + 10, cw - 20, ch - 20);
+  else if (_tab === 'mercenary') _renderMercenary(game, cx + 10, cy + 10, cw - 20, ch - 20);
+  else if (_tab === 'recruit') _renderRecruit(game, cx + 10, cy + 10, cw - 20, ch - 20);
+
+  game.ui.createButton(game.w / 2 - 60, game.h - 60, 120, 40, '返回地图', () => game._showMap());
+}
+
+function _renderArmy(game, x, y, w, h) {
+  const a = state.army;
+  const total = state.totalArmy;
+
+  game.ui.createText(x, y, `总兵力: ${total}  士气: ${a.morale}`, { fontSize: 16, fill: 0xFFD700, bold: true });
+  y += 30;
+
+  // 6 unit types display
+  const units = [
+    { key: 'infantry', ...UNIT_TYPES.infantry },
+    { key: 'cavalry', ...UNIT_TYPES.cavalry },
+    { key: 'archerCav', ...UNIT_TYPES.archerCav },
+    { key: 'camel', ...UNIT_TYPES.camel },
+    { key: 'femaleInfantry', ...UNIT_TYPES.femaleInfantry },
+    { key: 'femaleCavalry', ...UNIT_TYPES.femaleCavalry },
+  ];
+
+  units.forEach(u => {
+    const count = a[u.key] || 0;
+    game.ui.createPanel(x, y, w - 20, 50, '', 0x1a0a04);
+
+    // Icon + name
+    game.ui.createText(x + 10, y + 5, `${u.icon} ${u.name}`, { fontSize: 14, fill: u.color, bold: true });
+    game.ui.createText(x + 10, y + 25, u.desc, { fontSize: 10, fill: 0x888888 });
+
+    // Count
+    game.ui.createText(x + 300, y + 15, `数量: ${count}`, { fontSize: 14, fill: 0xF0E68C, bold: true });
+
+    // Stats
+    game.ui.createText(x + 400, y + 5, `攻:${u.atk} 防:${u.def} 速:${u.spd}`, { fontSize: 11, fill: 0xCCCCCC });
+    game.ui.createText(x + 400, y + 25, `射程:${u.range} ${u.femaleOnly ? '♀女兵' : ''}`, { fontSize: 11, fill: u.femaleOnly ? 0xFF69B4 : 0xAAAAAA });
+
+    // Counter info
+    const counterNames = u.counters.map(c => UNIT_TYPES[c]?.name || c).join('、');
+    game.ui.createText(x + 550, y + 5, `克制: ${counterNames}`, { fontSize: 11, fill: 0x27AE60 });
+    const cByNames = u.counteredBy.map(c => UNIT_TYPES[c]?.name || c).join('、');
+    game.ui.createText(x + 550, y + 25, `被克: ${cByNames}`, { fontSize: 11, fill: 0xE74C3C });
+
+    y += 58;
+  });
+
+  // Morale bar
+  y += 10;
+  game.ui.createText(x, y, '士气:', { fontSize: 13, fill: 0xD4A853 });
+  game.ui.createProgressBar(x + 50, y - 3, 200, 14, a.morale, 100,
+    a.morale > 70 ? 0x27AE60 : a.morale > 50 ? 0xF39C12 : 0xE74C3C);
+}
+
+function _renderCounter(game, x, y, w, h) {
+  game.ui.createText(x, y, '⚔️ 兵种克制关系', { fontSize: 16, fill: 0xFFD700, bold: true });
+  y += 30;
+
+  game.ui.createText(x, y, '克制链: 弓骑→步兵→骆驼→骑兵→弓骑', { fontSize: 13, fill: 0xD4A853 });
+  y += 20;
+  game.ui.createText(x, y, '女兵克制同类型男兵（士气优势）', { fontSize: 13, fill: 0xFF69B4 });
+  y += 20;
+  game.ui.createText(x, y, '骆驼兵在沙漠地形战力×1.5', { fontSize: 13, fill: 0xD4A853 });
+  y += 30;
+
+  // Counter table header
+  const types = Object.keys(COUNTER_TABLE);
+  const colW = 75;
+  game.ui.createText(x, y, '攻↓\\守→', { fontSize: 10, fill: 0x888888 });
+  types.forEach((t, i) => {
+    game.ui.createText(x + 80 + i * colW, y, UNIT_TYPES[t].name, { fontSize: 10, fill: UNIT_TYPES[t].color });
+  });
+  y += 20;
+
+  // Counter table rows
+  types.forEach(attacker => {
+    game.ui.createText(x, y, UNIT_TYPES[attacker].name, { fontSize: 10, fill: UNIT_TYPES[attacker].color });
+    types.forEach((defender, i) => {
+      const mult = COUNTER_TABLE[attacker][defender];
+      let color = 0xCCCCCC;
+      if (mult > 1.2) color = 0x27AE60;      // strong advantage
+      else if (mult > 1.0) color = 0x7DCEA0;  // slight advantage
+      else if (mult < 0.7) color = 0xE74C3C;  // strong disadvantage
+      else if (mult < 1.0) color = 0xF39C12;  // slight disadvantage
+      game.ui.createText(x + 80 + i * colW, y, `${mult.toFixed(1)}`, { fontSize: 11, fill: color, bold: mult > 1.2 || mult < 0.7 });
+    });
+    y += 20;
+  });
+
+  y += 20;
+  game.ui.createText(x, y, '💡 数值>1.0表示攻击方优势，<1.0表示劣势', { fontSize: 11, fill: 0x888888 });
+}
+
+function _renderMercenary(game, x, y, w, h) {
+  game.ui.createText(x, y, '💰 雇佣兵市场', { fontSize: 16, fill: 0xFFD700, bold: true });
+  y += 15;
+  game.ui.createText(x, y, `可用金币: ${state.player.gold}`, { fontSize: 12, fill: 0xD4A853 });
+  y += 30;
+
+  Object.entries(MERCENARY_TYPES).forEach(([id, m]) => {
+    const ut = UNIT_TYPES[m.type];
+    game.ui.createPanel(x, y, w - 20, 55, '', 0x1a0a04);
+    game.ui.createText(x + 10, y + 5, `${ut?.icon || '⚔️'} ${m.name}`, { fontSize: 13, fill: ut?.color || 0xCCCCCC, bold: true });
+    game.ui.createText(x + 10, y + 25, m.desc, { fontSize: 11, fill: 0xAAAAAA });
+    game.ui.createText(x + 10, y + 40, `类型: ${ut?.name || m.type} | 攻:${m.atk} 防:${m.def}`, { fontSize: 11, fill: 0xCCCCCC });
+    game.ui.createButton(x + w - 160, y + 12, 130, 30, `雇佣 ${m.cost}金`, () => {
+      if (state.hireMercenary(id, m.cost)) {
+        // Add to army
+        if (state.army[m.type] !== undefined) state.army[m.type] += 10;
+        alert(`雇佣了 ${m.name} x10！`);
+        _renderMilitary(game);
+      } else {
+        alert('金币不足！');
+      }
+    }, 0x8B0000);
+    y += 62;
+  });
+}
+
+function _renderRecruit(game, x, y, w, h) {
+  game.ui.createText(x, y, '⚔️ 部落征召', { fontSize: 16, fill: 0xFFD700, bold: true });
+  y += 15;
+  game.ui.createText(x, y, `金币: ${state.player.gold} | 粮食: ${state.resources.food} | 马: ${state.resources.horse} | 骆驼: ${state.resources.camel}`, { fontSize: 12, fill: 0xD4A853 });
+  y += 30;
+
+  const units = [
+    { key: 'infantry', ...UNIT_TYPES.infantry },
+    { key: 'cavalry', ...UNIT_TYPES.cavalry },
+    { key: 'archerCav', ...UNIT_TYPES.archerCav },
+    { key: 'camel', ...UNIT_TYPES.camel },
+    { key: 'femaleInfantry', ...UNIT_TYPES.femaleInfantry },
+    { key: 'femaleCavalry', ...UNIT_TYPES.femaleCavalry },
+  ];
+
+  units.forEach(u => {
+    game.ui.createPanel(x, y, w - 20, 45, '', 0x1a0a04);
+    game.ui.createText(x + 10, y + 5, `${u.icon} ${u.name}`, { fontSize: 13, fill: u.color, bold: true });
+    const costStr = Object.entries(u.cost).map(([k, v]) => `${k}:${v}`).join(' ');
+    game.ui.createText(x + 10, y + 25, `费用: ${costStr} | 攻:${u.atk} 防:${u.def}`, { fontSize: 11, fill: 0xCCCCCC });
+
+    game.ui.createButton(x + w - 200, y + 8, 80, 28, '征召x10', () => {
+      if (state.recruitTribeSoldiers(u.key, 10)) {
+        alert(`征召了 ${u.name} x10！`);
+        _renderMilitary(game);
+      } else {
+        alert('资源不足！');
+      }
+    }, 0x2E4053);
+    game.ui.createButton(x + w - 110, y + 8, 80, 28, '征召x50', () => {
+      if (state.recruitTribeSoldiers(u.key, 50)) {
+        alert(`征召了 ${u.name} x50！`);
+        _renderMilitary(game);
+      } else {
+        alert('资源不足！');
+      }
+    }, 0x8B0000);
+    y += 52;
+  });
 }

@@ -5,11 +5,13 @@ import { state } from '../core/gameState.js';
 import { NATION_LIST } from '../data/nations.js';
 
 export function showMap(game) {
-  game._clearUI();
+  game.ui.clear();
+  game.pixiApp.bgLayer.removeChildren();
   game.scene = 'map';
   game.particles.clear();
   game.particles.addEffect('sand');
 
+  game.mapRenderer.invalidate();
   game.mapRenderer.centerOn(state.player.location.x, state.player.location.y);
   game.mapRenderer.render(game.pixiApp.terrainLayer, game.pixiApp.buildingLayer, game.w, game.h);
 

@@ -13,9 +13,7 @@ export class MapRenderer {
     this.camX = 0; this.camY = 0; this.zoom = 1;
     this.waterFrame = 0;
     this.viewMode = 'strategy';
-    this._bufT = new PIXI.Container();
-    this._bufB = new PIXI.Container();
-    this._frontT = null; this._frontB = null;
+    this._tL = null; this._bL = null;
     this._dirty = true;
   }
 
@@ -41,17 +39,19 @@ export class MapRenderer {
   render(tL, bL, vW, vH) {
     if (!this._dirty) return;
     this._dirty = false;
-    this._bufT.removeChildren(); this._bufB.removeChildren();
+    // Direct render: clear layers and render into them
+    tL.removeChildren(); bL.removeChildren();
+    // Store layer references for sub-methods
+    this._tL = tL; this._bL = bL;
+    // Render directly into layers
     if (this.viewMode === 'strategy') this._renderStrategy(vW, vH);
     else if (this.viewMode === 'territory') this._renderTerritory(vW, vH);
     else this._renderLandscape(vW, vH);
-    if (this._frontT) { tL.removeChild(this._frontT); bL.removeChild(this._frontB); }
-    tL.addChild(this._bufT); bL.addChild(this._bufB);
-    this._frontT = this._bufT; this._frontB = this._bufB;
-    this._bufT = new PIXI.Container(); this._bufB = new PIXI.Container();
+    console.log('[MapRenderer] Rendered', this.viewMode, 'terrain:', tL.children.length, 'building:', bL.children.length);
   }
 
   _renderStrategy(vW, vH) {
+    const tL = this._tL, bL = this._bL;
     const g = new PIXI.Graphics(), z = this.zoom, tw = TILE_W / 2 * z, th = TILE_H / 2 * z;
     for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
       const h = this.heightMap[y][x], ho = h > 0 ? h * 3 * z : 0;
@@ -70,14 +70,15 @@ export class MapRenderer {
       if (tt === 'forest' && (x + y) % 3 === 0) { g.beginFill(0x1B5E20); g.moveTo(sx, sy - th - 8 * z); g.lineTo(sx - 4 * z, sy - th); g.lineTo(sx + 4 * z, sy - th); g.closePath(); g.endFill(); }
       if (tt === 'desert' && (x + y) % 5 === 0) { g.beginFill(0xD4B060, .3); g.moveTo(sx - 3 * z, sy); g.lineTo(sx, sy - 4 * z); g.lineTo(sx + 3 * z, sy); g.closePath(); g.endFill(); }
     }
-    this._bufT.addChild(g);
-    this._drawBorders(this._bufT); this._drawRivers(this._bufT); this._drawRoads(this._bufT);
-    this._drawPasses(this._bufB); this._drawPorts(this._bufB); this._drawTribes(this._bufB);
-    this._drawCities(this._bufB); this._drawGeoLabels(this._bufB);
-    this._addTitle(this._bufB, '🗺️ 策略地图', vW);
+    tL.addChild(g);
+    this._drawBorders(tL); this._drawRivers(tL); this._drawRoads(tL);
+    this._drawPasses(bL); this._drawPorts(bL); this._drawTribes(bL);
+    this._drawCities(bL); this._drawGeoLabels(bL);
+    this._addTitle(bL, '🗺️ 策略地图', vW);
   }
 
   _renderTerritory(vW, vH) {
+    const tL = this._tL, bL = this._bL;
     const g = new PIXI.Graphics(), z = this.zoom, tw = TILE_W / 2 * z, th = TILE_H / 2 * z;
     g.beginFill(0x2C1810, 1); g.drawRect(0, 0, vW, vH); g.endFill();
     for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
@@ -89,7 +90,7 @@ export class MapRenderer {
       else { const tc = TC[tt] || TC.desert; g.beginFill(tc[0], .3); g.moveTo(sx, sy - th); g.lineTo(sx + tw, sy); g.lineTo(sx, sy + th); g.lineTo(sx - tw, sy); g.closePath(); g.endFill(); }
       if (tt === 'water' || tt === 'deepwater') { g.beginFill(0x2980B9, .5); g.moveTo(sx, sy - th); g.lineTo(sx + tw, sy); g.lineTo(sx, sy + th); g.lineTo(sx - tw, sy); g.closePath(); g.endFill(); }
     }
-    this._bufT.addChild(g);
+    tL.addChild(g);
     const bg = new PIXI.Graphics();
     Object.values(NATIONS || {}).forEach(n => { if (!n.territory?.length) return;
       const nc = parseInt((n.color || '#888').slice(1), 16); bg.lineStyle(3 * z, nc, .95);
@@ -100,24 +101,25 @@ export class MapRenderer {
         if (edge(0, -1)) { bg.moveTo(p.x - tw2, p.y); bg.lineTo(p.x, p.y - th2); }
         if (edge(0, 1)) { bg.moveTo(p.x + tw2, p.y); bg.lineTo(p.x, p.y - th2); }
       }); });
-    this._bufT.addChild(bg);
-    const rg = new PIXI.Graphics(); for (const r of RIVERS) { rg.lineStyle(r.w * z, 0x2980B9, .6); this._curve(rg, r.pts.map(p => this._toScr(p.x, p.y, 0)), 0, 0); } this._bufT.addChild(rg);
-    const sg = new PIXI.Graphics(); for (const r of SILK_ROADS) { sg.lineStyle(r.w * z, r.color, .5); this._curve(sg, r.pts.map(p => this._toScr(p.x, p.y, 0)), 0, 0); } this._bufT.addChild(sg);
+    tL.addChild(bg);
+    const rg = new PIXI.Graphics(); for (const r of RIVERS) { rg.lineStyle(r.w * z, 0x2980B9, .6); this._curve(rg, r.pts.map(p => this._toScr(p.x, p.y, 0)), 0, 0); } tL.addChild(rg);
+    const sg = new PIXI.Graphics(); for (const r of SILK_ROADS) { sg.lineStyle(r.w * z, r.color, .5); this._curve(sg, r.pts.map(p => this._toScr(p.x, p.y, 0)), 0, 0); } tL.addChild(sg);
     Object.values(NATIONS || {}).forEach(n => { if (!n.capital) return;
       const pos = this._toScr(n.capital.x, n.capital.y, 8), nc = parseInt((n.color || '#FFD700').slice(1), 16), s = z;
       const cg = new PIXI.Graphics(); cg.beginFill(nc, .9); cg.drawCircle(pos.x, pos.y, 10 * s); cg.endFill();
       if (n.isAllFemale) { cg.beginFill(0xFF69B4, .9); cg.drawCircle(pos.x + 8 * s, pos.y - 8 * s, 4 * s); cg.endFill(); }
-      this._bufB.addChild(cg);
+      bL.addChild(cg);
       const t = new PIXI.Text(n.name, { fontFamily: 'serif', fontSize: Math.max(12, 15 * z), fill: 0xFFFFFF, stroke: 0x000000, strokeThickness: 3, fontWeight: 'bold' });
-      t.anchor.set(.5); t.position.set(pos.x, pos.y - 18 * s); this._bufB.addChild(t);
+      t.anchor.set(.5); t.position.set(pos.x, pos.y - 18 * s); bL.addChild(t);
       const st = new PIXI.Text('⚔' + (n.military || 0) + ' 💰' + (n.economy || 0), { fontSize: Math.max(9, 10 * z), fill: 0xDDDDDD, stroke: 0x000000, strokeThickness: 1 });
-      st.anchor.set(.5); st.position.set(pos.x, pos.y + 14 * s); this._bufB.addChild(st);
+      st.anchor.set(.5); st.position.set(pos.x, pos.y + 14 * s); bL.addChild(st);
     });
-    this._drawGeoLabels(this._bufB);
-    this._addTitle(this._bufB, '🗺️ 势力地图', vW);
+    this._drawGeoLabels(bL);
+    this._addTitle(bL, '🗺️ 势力地图', vW);
   }
 
   _renderLandscape(vW, vH) {
+    const tL = this._tL, bL = this._bL;
     const g = new PIXI.Graphics(), z = this.zoom, tw = TILE_W / 2 * z, th = TILE_H / 2 * z;
     for (let i = 0; i < Math.min(vH, 200); i++) { const t = i / 200;
       g.beginFill(((Math.floor(15 + t * 20)) << 16) | ((Math.floor(10 + t * 30)) << 8) | Math.floor(40 + t * 15), .5); g.drawRect(0, i, vW, 1); g.endFill(); }
@@ -152,14 +154,14 @@ export class MapRenderer {
       if (tt === 'water') { const wo = Math.sin(this.waterFrame * .05 + x * .4 + y * .3) * 2 * z;
         g.beginFill(0x85C1E9, .15); g.moveTo(sx - 3 * z, sy + wo); g.quadraticCurveTo(sx, sy - 2 * z + wo, sx + 3 * z, sy + wo); g.lineTo(sx + 3 * z, sy + 3 * z + wo); g.lineTo(sx - 3 * z, sy + 3 * z + wo); g.closePath(); g.endFill(); }
     }
-    this._bufT.addChild(g);
+    tL.addChild(g);
     for (const r of RIVERS) { const pts = r.pts.map(p => this._toScr(p.x, p.y, this._ho(Math.floor(p.x), Math.floor(p.y))));
       const rg = new PIXI.Graphics(); rg.lineStyle(r.w * z + 2, 0x1a5276, .3); this._curve(rg, pts, 0, 0);
-      rg.lineStyle(r.w * z, r.color, .85); this._curve(rg, pts, 0, 0); this._bufT.addChild(rg); }
+      rg.lineStyle(r.w * z, r.color, .85); this._curve(rg, pts, 0, 0); tL.addChild(rg); }
     for (const r of SILK_ROADS) { const pts = r.pts.map(p => this._toScr(p.x, p.y, this._ho(Math.floor(p.x), Math.floor(p.y)) + 2));
-      const sg = new PIXI.Graphics(); sg.lineStyle(r.w * z, r.color, .7); this._curve(sg, pts, 0, 0); this._bufT.addChild(sg); }
-    this._drawCities(this._bufB); this._drawGeoLabels(this._bufB);
-    this._addTitle(this._bufB, '🌄 实景地图', vW);
+      const sg = new PIXI.Graphics(); sg.lineStyle(r.w * z, r.color, .7); this._curve(sg, pts, 0, 0); tL.addChild(sg); }
+    this._drawCities(bL); this._drawGeoLabels(bL);
+    this._addTitle(bL, '🌄 实景地图', vW);
   }
 
   _drawBorders(layer) {
@@ -177,9 +179,9 @@ export class MapRenderer {
 
   _drawRivers(layer) {
     const g = new PIXI.Graphics(), z = this.zoom;
-    for (const r of RIVERS) { const pts = r.pts.map(p => this._toScr(p.x, p.y, this._ho(Math.floor(p.x), Math.floor(p.y))));
-      g.lineStyle(r.w * z + 4, 0x0a2a4a, .4); this._curve(g, pts, 2, 2);
-      g.lineStyle(r.w * z, r.color, .8); this._curve(g, pts, 0, 0);
+    for (const r of RIVERS) { const pts = r.pts.map(p => this._toScr(p.x, p.y, 0));
+      g.lineStyle(r.w * z + 4, 0x0a2a4a, .3); this._curve(g, pts, 1, 1);
+      g.lineStyle(r.w * z, r.color, .85); this._curve(g, pts, 0, 0);
       if (r.np) { const np = this._toScr(r.np.x, r.np.y, this._ho(Math.floor(r.np.x), Math.floor(r.np.y)));
         const t = new PIXI.Text(r.name, { fontFamily: 'serif', fontSize: Math.max(10, 12 * z), fill: 0x85C1E9, stroke: 0x0a2a4a, strokeThickness: 2 });
         t.anchor.set(.5); t.position.set(np.x, np.y - 10 * z); layer.addChild(t); } }

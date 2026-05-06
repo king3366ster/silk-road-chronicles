@@ -286,12 +286,14 @@ export class AncientUI {
     g.moveTo(0, 40); g.lineTo(this.w, 40);
     bar.addChild(g);
 
+    const totalArmy = state.totalArmy || (state.army ? Object.entries(state.army).filter(([k]) => k !== 'morale').reduce((s, [, v]) => s + (v || 0), 0) : 0);
     const items = [
       { label: '回合', value: `${state.turn}` },
       { label: '金币', value: `${state.player.gold}` },
       { label: '等级', value: `Lv.${state.player.level}` },
       { label: '粮食', value: `${state.resources.food}` },
-      { label: '兵力', value: `${state.army.infantry}` },
+      { label: '兵力', value: `${totalArmy}` },
+      { label: '奴隶', value: `${state.slaves?.total || 0}` },
     ];
 
     let xOff = 20;
@@ -321,27 +323,31 @@ export class AncientUI {
     g.lineStyle(2, GOLD, 0.7);
     g.drawRoundedRect(0, 0, size, size, 6);
 
-    // Draw simplified terrain
-    const scale = size / 100;
-    for (let ty = 0; ty < 100; ty += 2) {
-      for (let tx = 0; tx < 100; tx += 2) {
-        const tile = mapRenderer.mapData?.[ty]?.[tx];
-        if (!tile) continue;
-        let color = 0xC8A850; // default desert
-        if (tile.type === 'water' || tile.type === 'deep_water') color = 0x2e86c1;
-        else if (tile.type === 'mountain' || tile.type === 'snow') color = 0x8e9eab;
-        else if (tile.type === 'grass' || tile.type === 'oasis') color = 0x27ae60;
-        else if (tile.type === 'forest') color = 0x1e8449;
-        else if (tile.type === 'city') color = 0xFF4444;
-        g.beginFill(color, 0.7);
-        g.drawRect(tx * scale, ty * scale, 2 * scale, 2 * scale);
-        g.endFill();
+    // Draw simplified terrain from heightMap
+    const hm = mapRenderer.heightMap;
+    if (hm && hm.length > 0) {
+      const mw = hm[0].length, mh = hm.length;
+      const scaleX = size / mw, scaleY = size / mh;
+      for (let ty = 0; ty < mh; ty += 2) {
+        for (let tx = 0; tx < mw; tx += 2) {
+          const h = hm[ty][tx];
+          let color = 0xC8A850; // default desert
+          if (h < -2) color = 0x1a5276;      // deep water
+          else if (h < 0) color = 0x2e86c1;   // water
+          else if (h > 10) color = 0xFDFEFE;  // snow
+          else if (h > 5) color = 0x8e9eab;   // mountain
+          else if (h > 2) color = 0x6B8E5A;   // grass/hills
+          else if (h > 0.5) color = 0xD4A853; // sand
+          g.beginFill(color, 0.7);
+          g.drawRect(tx * scaleX, ty * scaleY, 2 * scaleX, 2 * scaleY);
+          g.endFill();
+        }
       }
     }
 
-    // Player position
+    // Player position indicator
     g.beginFill(0xFFD700, 1);
-    g.drawCircle(48 * scale, 48 * scale, 3);
+    g.drawCircle(size / 2, size / 2, 3);
     g.endFill();
 
     container.addChild(g);
