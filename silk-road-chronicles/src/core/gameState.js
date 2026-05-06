@@ -1,7 +1,10 @@
 /**
- * Game State v3 - 全局游戏状态
- * 6 unit types, slave roles (labor/breeding/entertainment/sacrifice/training)
+ * Game State v4 - 全局游戏状态
+ * Citizen-Slave-General system
+ * 奴隶→公民转换，武将系统，职业分工
  */
+import { GENERAL_SYSTEM, CITIZEN_TYPES, CITIZEN_JOBS } from '../data/worldData.js';
+
 export const state = {
   turn: 1, phase: 'menu', characters: {}, stats: null,
   player: {
@@ -23,43 +26,63 @@ export const state = {
   },
   // 6 unit types army
   army: {
-    infantry: 10,       // 步兵
-    cavalry: 0,         // 骑兵
-    archerCav: 0,       // 弓骑兵
-    camel: 0,           // 骆驼兵
-    femaleInfantry: 0,  // 女步兵
-    femaleCavalry: 0,   // 女骑兵
+    infantry: 10, cavalry: 0, archerCav: 0, camel: 0,
+    femaleInfantry: 0, femaleCavalry: 0,
     morale: 70,
   },
-  // Slave system
+  // ===== SLAVE SYSTEM (奴隶系统 - 6 types) =====
   slaves: {
     total: 0,
-    assigned: {
-      labor_farm: 0,    // 农业劳力
-      labor_mine: 0,    // 采矿劳力
-      labor_wood: 0,    // 伐木劳力
-      labor_craft: 0,   // 工匠劳力
-      breeding: 0,      // 生育繁衍
-      entertainment: 0, // 舞女乐师
-      sacrifice: 0,     // 祭祀牺牲
+    inventory: {
+      femaleLaborer: 0, maleLaborer: 0, dancer: 0,
+      warrior: 0, concubine: 0, artisan: 0,
     },
-    training: [], // { slaveId, type, turnsLeft, result }
+    // 奴隶专属工作（伐木/采矿/农业只能由奴隶承担）
+    assigned: {
+      labor_farm: 0, labor_mine: 0, labor_wood: 0,
+      entertainment: 0, sacrifice: 0,
+    },
+    training: [],
   },
-  // Trained citizens (from slaves)
-  trainedCitizens: {
-    craftsman: 0,
-    merchant: 0,
-    farmer: 0,
-    soldier: 0,
-    general: 0,
+  // ===== CITIZEN SYSTEM (公民系统) =====
+  // 公民承担：征兵、商业、工匠、繁衍
+  // 公民只能从奴隶培训转化而来
+  citizens: {
+    total: 0,
+    inventory: {
+      maleCitizen: 0,      // 男公民 - 可征男兵/经商/繁衍
+      femaleCitizen: 0,    // 女公民 - 可征女兵/经商/繁衍
+      femaleMerchant: 0,   // 女商人(舞女转化) - 商业+30%加成
+      craftsman: 0,        // 工匠(匠奴转化) - 科技/建造
+    },
+    // 公民职业分配
+    assigned: {
+      soldier: 0,    // 征兵入伍
+      merchant: 0,   // 经商贸易
+      craftsman: 0,  // 工匠科技
+      builder: 0,    // 建筑建造
+      breeding: 0,   // 繁衍后代
+    },
   },
+  // ===== GENERAL SYSTEM (武将系统 - 参考三国志) =====
+  // 武将可带兵攻城掠地，攻城必须有武将
+  generals: [],  // Array of general objects
+  // General names pool
+  _generalNames: {
+    male: ['赵破奴', '甘延寿', '陈汤', '班超', '班勇', '耿恭', '窦固', '窦宪',
+           '张骞', '卫青', '霍去病', '李广', '公孙敖', '苏建', '李陵', '赵充国'],
+    female: ['花木兰', '妇好', '吕母', '冼夫人', '平阳公主', '秦良玉',
+             '梁红玉', '樊梨花', '穆桂英', '阿史那', '细君公主', '解忧公主'],
+  },
+  _nameIdx: 0,
+
   // Hired characters
   hiredGenerals: [], hiredOfficials: [], hiredMerchants: [], hiredSpies: [],
   // Tribe relations
   tribeRelations: {},
   controlledCities: new Set(),
   controlledTribes: new Set(),
-  controlledSince: {}, // tribeId → turn number when controlled
+  controlledSince: {},
   alliances: [], tradeRoutes: [], ownedTerritories: new Set(),
   activeQuests: [], completedQuests: [], currentMainQuest: 'main_001',
   unlockedCG: new Set(),
@@ -71,38 +94,134 @@ export const state = {
     return a.infantry + a.cavalry + a.archerCav + a.camel + a.femaleInfantry + a.femaleCavalry;
   },
 
+  get totalSlaves() { return this.slaves.total; },
+  get totalCitizens() { return this.citizens.total; },
+  get unassignedSlaves() {
+    return this.slaves.total - Object.values(this.slaves.assigned).reduce((a, b) => a + b, 0);
+  },
+  get unassignedCitizens() {
+    return this.citizens.total - Object.values(this.citizens.assigned).reduce((a, b) => a + b, 0);
+  },
+
+  // ===== DEVELOPMENT BALANCE CHECK =====
+  // 检查奴隶/公民平衡，不平衡会影响城邦发展
+  get developmentBalance() {
+    const slaves = this.slaves.total;
+    const citizens = this.citizens.total;
+    const total = slaves + citizens;
+    if (total === 0) return { score: 0, desc: '无人口', penalty: 0 };
+
+    // 理想比例：奴隶60% 公民40%（奴隶做苦力，公民做高级工作）
+    const slaveRatio = slaves / total;
+    let score = 100;
+    let penalty = 0;
+    let issues = [];
+
+    // 奴隶太少 → 资源产出不足
+    if (slaveRatio < 0.3) {
+      score -= 30;
+      penalty = 0.5;
+      issues.push('奴隶不足，资源产出严重下降！');
+    } else if (slaveRatio < 0.5) {
+      score -= 10;
+      penalty = 0.2;
+      issues.push('奴隶偏少，资源产出受限');
+    }
+
+    // 公民太少 → 无法征兵/经商
+    if (citizens < 5) {
+      score -= 30;
+      penalty += 0.5;
+      issues.push('公民不足，无法有效征兵和经商！');
+    }
+
+    // 公民职业分配检查
+    const ca = this.citizens.assigned;
+    if (ca.soldier === 0 && this.totalArmy < 20) {
+      score -= 10;
+      issues.push('无公民参军，军力薄弱');
+    }
+    if (ca.merchant === 0) {
+      score -= 10;
+      issues.push('无公民经商，商业收入为零');
+    }
+
+    return {
+      score: Math.max(0, score),
+      desc: score >= 80 ? '发展均衡' : score >= 50 ? '发展失衡' : '严重失衡',
+      penalty: Math.min(1, penalty),
+      issues,
+    };
+  },
+
   getNationRelation(a, b) { return 50 + Math.floor(Math.random() * 20 - 10); },
   movePlayer(x, y) { this.player.location.x = x; this.player.location.y = y; },
   addGold(n) { this.player.gold += n; },
   addExp(n) { this.player.exp += n; },
 
+  // ===== NEXT TURN =====
   nextTurn() {
     this.turn++;
-    this.resources.food += this.tribe.agriculture.output;
-    this.player.gold += this.tribe.commerce.income;
-    this.tradeRoutes.forEach(t => this.player.gold += t.income);
+    const balance = this.developmentBalance;
+    const penaltyMult = 1 - balance.penalty;
 
-    // Slave labor production
+    // Base production
+    this.resources.food += Math.floor(this.tribe.agriculture.output * penaltyMult);
+    this.player.gold += Math.floor(this.tribe.commerce.income * penaltyMult);
+    this.tradeRoutes.forEach(t => this.player.gold += Math.floor(t.income * penaltyMult));
+
+    // === SLAVE LABOR (奴隶劳力 - 伐木/采矿/农业) ===
     const s = this.slaves;
-    if (s.assigned.labor_farm > 0) this.resources.food += Math.floor(s.assigned.labor_farm * 2);
-    if (s.assigned.labor_mine > 0) this.resources.ore += Math.floor(s.assigned.labor_mine * 1);
-    if (s.assigned.labor_wood > 0) this.resources.wood += Math.floor(s.assigned.labor_wood * 1);
-    if (s.assigned.labor_craft > 0) this.player.gold += Math.floor(s.assigned.labor_craft * 3);
-    if (s.assigned.entertainment > 0) this.player.gold += Math.floor(s.assigned.entertainment * 5);
-    if (s.assigned.breeding > 0) this.tribe.population += Math.floor(s.assigned.breeding * 0.1);
+    if (s.assigned.labor_farm > 0) this.resources.food += Math.floor(s.assigned.labor_farm * 2 * penaltyMult);
+    if (s.assigned.labor_mine > 0) this.resources.ore += Math.floor(s.assigned.labor_mine * 1 * penaltyMult);
+    if (s.assigned.labor_wood > 0) this.resources.wood += Math.floor(s.assigned.labor_wood * 1 * penaltyMult);
+    if (s.assigned.entertainment > 0) this.player.gold += Math.floor(s.assigned.entertainment * 5 * penaltyMult);
     if (s.assigned.sacrifice > 0) this.army.morale = Math.min(100, this.army.morale + Math.floor(s.assigned.sacrifice * 0.5));
 
-    // Trained citizen bonuses
-    if (this.trainedCitizens.craftsman > 0) this.player.gold += this.trainedCitizens.craftsman * 5;
-    if (this.trainedCitizens.merchant > 0) this.tribe.commerce.income += this.trainedCitizens.merchant * 2;
-    if (this.trainedCitizens.farmer > 0) this.resources.food += this.trainedCitizens.farmer * 3;
+    // === CITIZEN PRODUCTION (公民产出 - 征兵/商业/科技/建造) ===
+    const ca = this.citizens.assigned;
+    // 经商贸易 - 基础10金/商人/回合
+    if (ca.merchant > 0) {
+      let merchantIncome = ca.merchant * 10;
+      // 女商人加成
+      const femaleMerchantCount = this.citizens.inventory.femaleMerchant || 0;
+      if (femaleMerchantCount > 0) merchantIncome = Math.floor(merchantIncome * 1.3);
+      this.player.gold += Math.floor(merchantIncome * penaltyMult);
+      this.tribe.commerce.income = Math.floor(merchantIncome * 0.3);
+    }
+    // 工匠科技 - 提升科技等级
+    if (ca.craftsman > 0) {
+      this.tribe.techLevel = Math.min(10, this.tribe.techLevel + ca.craftsman * 0.01);
+    }
+    // 建筑建造 - 加速建造
+    if (ca.builder > 0) {
+      this.resources.stone += Math.floor(ca.builder * 2);
+    }
+    // 繁衍后代 - 增加人口
+    if (ca.breeding > 0) {
+      this.tribe.population += Math.floor(ca.breeding * 2);
+    }
 
-    // Process slave training
+    // Process slave→citizen/general training
     this.slaves.training = this.slaves.training.filter(t => {
       t.turnsLeft--;
       if (t.turnsLeft <= 0) {
-        this.trainedCitizens[t.result] = (this.trainedCitizens[t.result] || 0) + 1;
-        this.slaves.total = Math.max(0, this.slaves.total - 1);
+        const cat = t.resultCategory;
+        if (cat === 'citizens') {
+          this.citizens.inventory[t.result] = (this.citizens.inventory[t.result] || 0) + 1;
+          this.citizens.total++;
+        } else if (cat === 'generals') {
+          // Create a new general
+          const gender = t.result === 'femaleGeneral' ? 'female' : 'male';
+          const name = this._getNextGeneralName(gender);
+          const general = GENERAL_SYSTEM.createGeneral(name, gender, 'slave_training');
+          this.generals.push(general);
+        } else if (cat === 'army') {
+          // Direct to army
+          if (t.result === 'eliteSoldier') {
+            this.army.infantry += 10; // Elite soldiers
+          }
+        }
         return false;
       }
       return true;
@@ -114,7 +233,33 @@ export const state = {
       this.player.gold += 3;
     });
 
-    return { text: `第${this.turn}回合开始` };
+    // General EXP gain
+    this.generals.forEach(g => {
+      g.exp += 10;
+      // Level up check
+      const expNeeded = g.level * 100;
+      if (g.exp >= expNeeded) {
+        g.level++;
+        g.exp -= expNeeded;
+        // Update rank
+        const ranks = GENERAL_SYSTEM.ranks;
+        for (let i = ranks.length - 1; i >= 0; i--) {
+          if (g.level >= ranks[i].minLevel) { g.rank = ranks[i]; break; }
+        }
+        // Random stat increase
+        const statKeys = Object.keys(g.stats);
+        g.stats[statKeys[Math.floor(Math.random() * statKeys.length)]] += 2;
+      }
+    });
+
+    return { text: `第${this.turn}回合开始 | 发展指数:${balance.score}`, balance };
+  },
+
+  _getNextGeneralName(gender) {
+    const pool = this._generalNames[gender] || this._generalNames.male;
+    const name = pool[this._nameIdx % pool.length];
+    this._nameIdx++;
+    return name;
   },
 
   sendGift(nId, type, amt) {},
@@ -139,31 +284,41 @@ export const state = {
     } return false;
   },
 
-  // Recruit tribe soldiers (部落征召)
+  // ===== CITIZEN RECRUITMENT (公民征兵 - 需要公民) =====
+  // 征兵只能由公民承担，消耗公民
+  recruitFromCitizens(unitType, count) {
+    const citizenType = (unitType === 'femaleInfantry' || unitType === 'femaleCavalry') ? 'femaleCitizen' : 'maleCitizen';
+    const available = this.citizens.inventory[citizenType] || 0;
+    const canRecruit = Math.min(count, available);
+    if (canRecruit <= 0) return { success: false, msg: `没有足够的${citizenType === 'femaleCitizen' ? '女' : '男'}公民可征召！` };
+
+    this.citizens.inventory[citizenType] -= canRecruit;
+    this.citizens.total -= canRecruit;
+    if (this.army[unitType] !== undefined) {
+      this.army[unitType] += canRecruit;
+    }
+    return { success: true, count: canRecruit, unitType };
+  },
+
+  // Recruit from tribe (basic, no citizen needed)
   recruitTribeSoldiers(unitType, count) {
     if (this.resources.food >= count * 5 && this.player.gold >= count * 15) {
       this.resources.food -= count * 5;
       this.player.gold -= count * 15;
-      if (this.army[unitType] !== undefined) {
-        this.army[unitType] += count;
-      }
+      if (this.army[unitType] !== undefined) this.army[unitType] += count;
       return true;
     }
     return false;
   },
 
-  // Hire mercenaries (雇佣兵)
   hireMercenary(mercType, cost) {
-    if (this.player.gold >= cost) {
-      this.player.gold -= cost;
-      return true;
-    }
+    if (this.player.gold >= cost) { this.player.gold -= cost; return true; }
     return false;
   },
 
-  // Slave management
+  // ===== SLAVE MANAGEMENT =====
   assignSlave(role, count) {
-    const available = this.slaves.total - Object.values(this.slaves.assigned).reduce((a, b) => a + b, 0);
+    const available = this.unassignedSlaves;
     const canAssign = Math.min(count, available);
     if (canAssign > 0 && this.slaves.assigned[role] !== undefined) {
       this.slaves.assigned[role] += canAssign;
@@ -171,7 +326,6 @@ export const state = {
     }
     return 0;
   },
-
   unassignSlave(role, count) {
     if (this.slaves.assigned[role] >= count) {
       this.slaves.assigned[role] -= count;
@@ -179,43 +333,129 @@ export const state = {
     }
     return 0;
   },
-
-  buySlaves(count, cost) {
-    this.slaves.total += count;
+  buySlaves(slaveType, count, cost) {
+    if (this.player.gold < cost) return 0;
     this.player.gold -= cost;
+    this.slaves.total += count;
+    if (this.slaves.inventory[slaveType] !== undefined) this.slaves.inventory[slaveType] += count;
+    return count;
   },
-
-  sellSlaves(count, price) {
-    // Can only sell unassigned slaves
-    const available = this.slaves.total - Object.values(this.slaves.assigned).reduce((a, b) => a + b, 0);
+  sellSlaves(slaveType, count, pricePerUnit) {
+    const available = this.slaves.inventory[slaveType] || 0;
     const canSell = Math.min(count, available);
+    if (canSell <= 0) return 0;
+    this.slaves.inventory[slaveType] -= canSell;
     this.slaves.total -= canSell;
-    this.player.gold += Math.floor(canSell * price);
+    this.player.gold += Math.floor(canSell * pricePerUnit);
     return canSell;
   },
 
-  // Plunder slaves from tribe (掠夺奴隶)
-  plunderSlaves(tribe) {
-    const yield_ = Math.floor(Math.random() * 25) + 5;
+  // ===== PLUNDER (掠夺 - 把他国公民变成奴隶) =====
+  plunderSlaves(tribe, getPlunderYield) {
     const goldYield = Math.floor(Math.random() * 80) + 20;
-    this.slaves.total += yield_;
+    const yield_ = getPlunderYield(tribe);
+    let totalSlaves = 0;
+    Object.entries(yield_).forEach(([type, count]) => {
+      if (count > 0 && this.slaves.inventory[type] !== undefined) {
+        this.slaves.inventory[type] += count;
+        totalSlaves += count;
+      }
+    });
+    this.slaves.total += totalSlaves;
     this.player.gold += goldYield;
     this.tribeRelations[tribe.id] = (this.tribeRelations[tribe.id] || 50) - 30;
-    return { slaves: yield_, gold: goldYield };
+    // 掠夺降低他国实力（减少部落人口和兵力）
+    tribe.pop = Math.max(0, tribe.pop - totalSlaves * 2);
+    tribe.troops = Math.max(0, tribe.troops - Math.floor(totalSlaves * 0.5));
+    return { typed: yield_, total: totalSlaves, gold: goldYield };
   },
 
-  // Train slave into citizen
+  // ===== SLAVE TRIBUTE (赠送奴隶增强他国) =====
+  sendSlaveTribute(targetId, slaveType, count, isMajorPower, calcGiftEffect) {
+    const available = this.slaves.inventory[slaveType] || 0;
+    const canSend = Math.min(count, available);
+    if (canSend <= 0) return null;
+    this.slaves.inventory[slaveType] -= canSend;
+    this.slaves.total -= canSend;
+    const effect = calcGiftEffect(targetId, slaveType, canSend, isMajorPower);
+    if (isMajorPower) {
+      this.majorPowerRelations[targetId] = Math.min(100, (this.majorPowerRelations[targetId] || 50) + effect.relationGain);
+    } else {
+      this.tribeRelations[targetId] = (this.tribeRelations[targetId] || 50) + effect.relationGain;
+    }
+    this.player.gold += effect.goldGain;
+    // 赠送奴隶增强他国实力
+    return effect;
+  },
+
+  // ===== SLAVE → CITIZEN/GENERAL TRAINING =====
   trainSlave(trainingType) {
-    const available = this.slaves.total - Object.values(this.slaves.assigned).reduce((a, b) => a + b, 0);
+    const fromType = trainingType.fromType;
+    const available = this.slaves.inventory[fromType] || 0;
     if (available <= 0) return false;
+    this.slaves.inventory[fromType]--;
+    this.slaves.total--;
     this.slaves.training.push({
       slaveId: Date.now(),
       type: trainingType.id,
+      fromType: fromType,
       turnsLeft: trainingType.turns,
       result: trainingType.result,
+      resultCategory: trainingType.resultCategory,
     });
-    this.slaves.total++; // temporarily count as in-training
     return true;
+  },
+
+  // ===== CITIZEN JOB ASSIGNMENT =====
+  assignCitizen(job, count) {
+    const available = this.unassignedCitizens;
+    const canAssign = Math.min(count, available);
+    if (canAssign > 0 && this.citizens.assigned[job] !== undefined) {
+      this.citizens.assigned[job] += canAssign;
+      return canAssign;
+    }
+    return 0;
+  },
+  unassignCitizen(job, count) {
+    if (this.citizens.assigned[job] >= count) {
+      this.citizens.assigned[job] -= count;
+      return count;
+    }
+    return 0;
+  },
+
+  // ===== GENERAL MANAGEMENT =====
+  // Assign troops to general (武将带兵)
+  assignTroopsToGeneral(generalId, unitType, count) {
+    const general = this.generals.find(g => g.id === generalId);
+    if (!general) return false;
+    const maxTroops = general.rank.maxTroops;
+    const currentTroops = Object.values(general.troops).reduce((a, b) => a + b, 0);
+    if (currentTroops + count > maxTroops) return false;
+    if (this.army[unitType] < count) return false;
+    this.army[unitType] -= count;
+    general.troops[unitType] = (general.troops[unitType] || 0) + count;
+    return true;
+  },
+  // Remove troops from general
+  removeTroopsFromGeneral(generalId, unitType, count) {
+    const general = this.generals.find(g => g.id === generalId);
+    if (!general) return false;
+    const available = general.troops[unitType] || 0;
+    const canRemove = Math.min(count, available);
+    general.troops[unitType] -= canRemove;
+    this.army[unitType] += canRemove;
+    return canRemove;
+  },
+  // Check if can attack (need at least one general with troops)
+  canAttack() {
+    return this.generals.some(g => Object.values(g.troops).reduce((a, b) => a + b, 0) > 0);
+  },
+  // Get general total troops
+  getGeneralTroops(generalId) {
+    const general = this.generals.find(g => g.id === generalId);
+    if (!general) return 0;
+    return Object.values(general.troops).reduce((a, b) => a + b, 0);
   },
 
   // Hire from city

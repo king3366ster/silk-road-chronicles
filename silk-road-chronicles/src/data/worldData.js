@@ -333,39 +333,236 @@ export const MERCENARY_TYPES = {
   amazonRider: { name: '阿玛宗骑手', type: 'femaleCavalry', cost: 120, atk: 16, def: 9, desc: '阿玛宗精英女骑兵' },
 };
 
-// ===== SLAVE SYSTEM (奴隶系统) =====
-// 奴隶用途：劳动力、生育、娱乐、祭祀、培训改造
+// ===== 6 SLAVE TYPES (六大奴隶类型) =====
+// 每种奴隶有不同的用途、价值和培养路径
+export const SLAVE_TYPES = {
+  femaleLaborer: {
+    id: 'femaleLaborer', name: '女劳奴', icon: '👩‍🌾', gender: 'female',
+    desc: '女性劳力奴隶，擅长纺织、采集、家务',
+    basePrice: 80, tier: 1,
+    bestRoles: ['labor_farm', 'labor_craft', 'entertainment'],
+    trainTo: ['dancer', 'concubine', 'craftswoman'],
+    color: 0xFFB6C1,
+  },
+  maleLaborer: {
+    id: 'maleLaborer', name: '男劳奴', icon: '👨‍🌾', gender: 'male',
+    desc: '男性劳力奴隶，擅长采矿、伐木、建筑',
+    basePrice: 60, tier: 1,
+    bestRoles: ['labor_farm', 'labor_mine', 'labor_wood'],
+    trainTo: ['craftsman', 'soldier', 'farmer'],
+    color: 0xDEB887,
+  },
+  dancer: {
+    id: 'dancer', name: '舞女', icon: '💃', gender: 'female',
+    desc: '擅长歌舞的才艺奴隶，价值高昂',
+    basePrice: 200, tier: 2,
+    bestRoles: ['entertainment'],
+    trainTo: ['courtesan', 'musician'],
+    color: 0xFF69B4,
+  },
+  warrior: {
+    id: 'warrior', name: '战奴', icon: '⚔️', gender: 'any',
+    desc: '有战斗经验的奴隶，可训练为士兵',
+    basePrice: 150, tier: 2,
+    bestRoles: ['sacrifice', 'training_soldier'],
+    trainTo: ['elite_soldier', 'gladiator'],
+    color: 0xE74C3C,
+  },
+  concubine: {
+    id: 'concubine', name: '侍妾', icon: '👸', gender: 'female',
+    desc: '容貌出众的女性奴隶，用于繁衍或外交赠礼',
+    basePrice: 300, tier: 3,
+    bestRoles: ['breeding', 'entertainment'],
+    trainTo: ['noble_consort'],
+    color: 0xDA70D6,
+  },
+  artisan: {
+    id: 'artisan', name: '匠奴', icon: '🔨', gender: 'any',
+    desc: '拥有手艺技能的奴隶，价值不菲',
+    basePrice: 180, tier: 2,
+    bestRoles: ['labor_craft'],
+    trainTo: ['master_craftsman', 'merchant'],
+    color: 0xDAA520,
+  },
+};
+
+// 奴隶用途（分配角色）
 export const SLAVE_ROLES = {
-  labor_farm:    { id: 'labor_farm',    name: '农业劳力', icon: '🌾', output: 'food',  perSlave: 2,  desc: '奴隶耕种，每奴隶产出2粮食/回合' },
-  labor_mine:    { id: 'labor_mine',    name: '采矿劳力', icon: '⛏️', output: 'ore',   perSlave: 1,  desc: '奴隶采矿，每奴隶产出1矿石/回合' },
-  labor_wood:    { id: 'labor_wood',    name: '伐木劳力', icon: '🪵', output: 'wood',  perSlave: 1,  desc: '奴隶伐木，每奴隶产出1木材/回合' },
-  labor_craft:   { id: 'labor_craft',   name: '工匠劳力', icon: '🔨', output: 'gold',  perSlave: 3,  desc: '奴隶手工业，每奴隶产出3金/回合' },
-  breeding:      { id: 'breeding',      name: '生育繁衍', icon: '👶', output: 'pop',   perSlave: 0.1, desc: '奴隶生育，增加人口（阿玛宗等女国特色）' },
-  entertainment: { id: 'entertainment', name: '舞女乐师', icon: '💃', output: 'gold',  perSlave: 5,  desc: '奴隶表演，增加收入和声望' },
-  sacrifice:     { id: 'sacrifice',     name: '祭祀牺牲', icon: '🔥', output: 'faith', perSlave: 10, desc: '祭祀用，提升信仰和士气' },
+  labor_farm:    { id: 'labor_farm',    name: '农业劳力', icon: '🌾', output: 'food',  perSlave: 2,  desc: '奴隶耕种，每奴隶产出2粮食/回合', acceptTypes: ['femaleLaborer', 'maleLaborer', 'artisan'] },
+  labor_mine:    { id: 'labor_mine',    name: '采矿劳力', icon: '⛏️', output: 'ore',   perSlave: 1,  desc: '奴隶采矿，每奴隶产出1矿石/回合', acceptTypes: ['maleLaborer', 'warrior'] },
+  labor_wood:    { id: 'labor_wood',    name: '伐木劳力', icon: '🪵', output: 'wood',  perSlave: 1,  desc: '奴隶伐木，每奴隶产出1木材/回合', acceptTypes: ['maleLaborer', 'artisan'] },
+  labor_craft:   { id: 'labor_craft',   name: '工匠劳力', icon: '🔨', output: 'gold',  perSlave: 3,  desc: '奴隶手工业，每奴隶产出3金/回合', acceptTypes: ['artisan', 'femaleLaborer'] },
+  breeding:      { id: 'breeding',      name: '生育繁衍', icon: '👶', output: 'pop',   perSlave: 0.1, desc: '奴隶生育，增加人口', acceptTypes: ['femaleLaborer', 'concubine'] },
+  entertainment: { id: 'entertainment', name: '舞女乐师', icon: '💃', output: 'gold',  perSlave: 5,  desc: '奴隶表演，增加收入和声望', acceptTypes: ['dancer', 'concubine'] },
+  sacrifice:     { id: 'sacrifice',     name: '祭祀牺牲', icon: '🔥', output: 'faith', perSlave: 10, desc: '祭祀用，提升信仰和士气', acceptTypes: ['warrior', 'maleLaborer'] },
 };
 
-// 奴隶培训改造路径
+// ===== SLAVE → CITIZEN CONVERSION PATHS (奴隶→公民转换) =====
+// 奴隶通过培训成为公民，公民承担征兵、商业、工匠等职责
+// 伐木/采矿/农业只能由奴隶承担；征兵/商业/工匠只能由公民承担
 export const SLAVE_TRAINING = {
-  toCraftsman:  { id: 'toCraftsman',  name: '培训工匠', cost: { gold: 100, food: 50 },  turns: 10, result: 'craftsman',  desc: '奴隶→工匠，产出翻倍' },
-  toMerchant:   { id: 'toMerchant',   name: '培训商人', cost: { gold: 150, food: 30 },  turns: 15, result: 'merchant',   desc: '奴隶→商人，增加商业收入' },
-  toFarmer:     { id: 'toFarmer',     name: '培训农夫', cost: { gold: 50, food: 30 },   turns: 5,  result: 'farmer',     desc: '奴隶→农夫，粮食产出+50%' },
-  toSoldier:    { id: 'toSoldier',    name: '训练兵员', cost: { gold: 200, food: 80 },  turns: 20, result: 'soldier',    desc: '奴隶→士兵，需兵营' },
-  toGeneral:    { id: 'toGeneral',    name: '培养将领', cost: { gold: 500, food: 200 }, turns: 60, result: 'general',    desc: '奴隶→将领，极稀有，需高资质' },
+  // === 男劳奴 → 男公民 ===
+  toMaleCitizen:    { id: 'toMaleCitizen',    name: '解放为男公民', fromType: 'maleLaborer', cost: { gold: 80, food: 30 },  turns: 5,  result: 'maleCitizen',    resultCategory: 'citizens', desc: '男劳奴→男公民，可征兵/经商/工匠' },
+  // === 女劳奴 → 女公民 ===
+  toFemaleCitizen:  { id: 'toFemaleCitizen',  name: '解放为女公民', fromType: 'femaleLaborer', cost: { gold: 80, food: 30 },  turns: 5,  result: 'femaleCitizen',  resultCategory: 'citizens', desc: '女劳奴→女公民，可征兵/经商' },
+  // === 男战奴 → 男公民(军事) ===
+  toMaleWarrior:    { id: 'toMaleWarrior',    name: '编入男兵籍', fromType: 'warrior', cost: { gold: 150, food: 60 },  turns: 10, result: 'maleCitizen',    resultCategory: 'citizens', desc: '战奴→男公民(军事)，擅长征兵' },
+  // === 女战奴 → 女公民(军事) ===
+  toFemaleWarrior:  { id: 'toFemaleWarrior',  name: '编入女兵籍', fromType: 'warrior', cost: { gold: 150, food: 60 },  turns: 10, result: 'femaleCitizen',  resultCategory: 'citizens', desc: '女战奴→女公民(军事)，可征女兵' },
+  // === 舞女 → 女商人(有加成) ===
+  toFemaleMerchant: { id: 'toFemaleMerchant', name: '培养女商人', fromType: 'dancer', cost: { gold: 200, food: 50 },  turns: 12, result: 'femaleMerchant', resultCategory: 'citizens', desc: '舞女→女商人，商业收入+30%加成' },
+  // === 侍妾 → 女武将 ===
+  toFemaleGeneral:  { id: 'toFemaleGeneral',  name: '培养女武将', fromType: 'concubine', cost: { gold: 500, food: 100 }, turns: 30, result: 'femaleGeneral',  resultCategory: 'generals', desc: '侍妾→女武将，进入武将系统，可带兵攻城' },
+  // === 匠奴 → 工匠(科技/建造) ===
+  toCraftsman:      { id: 'toCraftsman',      name: '培养工匠', fromType: 'artisan', cost: { gold: 120, food: 40 },  turns: 10, result: 'craftsman',      resultCategory: 'citizens', desc: '匠奴→工匠，负责科技研发和建造' },
+  // === 匠奴 → 男女武将系统 ===
+  toMaleGeneral:    { id: 'toMaleGeneral',    name: '培养男武将', fromType: 'artisan', cost: { gold: 400, food: 100 }, turns: 25, result: 'maleGeneral',    resultCategory: 'generals', desc: '匠奴→男武将，进入武将系统，可带兵攻城' },
+  // === 高级路径 ===
+  toEliteSoldier:   { id: 'toEliteSoldier',   name: '精锐训练', fromType: 'warrior', cost: { gold: 350, food: 120 }, turns: 20, result: 'eliteSoldier',   resultCategory: 'army', desc: '战奴→精锐兵，直接编入军队' },
 };
 
-// 奴隶市场（买卖交易）
+// ===== CITIZEN SYSTEM (公民系统) =====
+// 公民承担：征兵、商业（税收/贸易）、工匠（科技/建造）
+// 公民只能从奴隶培训转化而来
+export const CITIZEN_TYPES = {
+  maleCitizen: {
+    id: 'maleCitizen', name: '男公民', icon: '👨', gender: 'male',
+    desc: '男性公民，可征兵(男性兵种)、经商、繁衍',
+    canRecruit: ['infantry', 'cavalry', 'archerCav', 'camel'],  // 可征召的兵种
+    canWork: ['soldier', 'merchant', 'official'],               // 可从事的职业
+    breedingRate: 0.05,  // 繁衍率
+  },
+  femaleCitizen: {
+    id: 'femaleCitizen', name: '女公民', icon: '👩', gender: 'female',
+    desc: '女性公民，可征兵(女兵种)、经商',
+    canRecruit: ['femaleInfantry', 'femaleCavalry'],  // 可征召的女兵种
+    canWork: ['soldier', 'merchant'],                  // 可从事的职业
+    breedingRate: 0.08,
+  },
+  femaleMerchant: {
+    id: 'femaleMerchant', name: '女商人', icon: '💃', gender: 'female',
+    desc: '由舞女培养的女商人，商业收入+30%加成',
+    canRecruit: [],
+    canWork: ['merchant'],
+    commerceBonus: 1.3,  // 30%商业加成
+  },
+  craftsman: {
+    id: 'craftsman', name: '工匠', icon: '🔨', gender: 'any',
+    desc: '工匠公民，负责科技研发和建造',
+    canRecruit: [],
+    canWork: ['craftsman', 'builder'],
+    techBonus: 1.2,
+    buildBonus: 1.3,
+  },
+};
+
+// ===== GENERAL SYSTEM (武将系统 - 参考三国志) =====
+// 武将可带兵攻城掠地，有统率/武力/智力/政治/魅力五维属性
+// 攻城必须有武将带兵
+export const GENERAL_SYSTEM = {
+  // 武将来源
+  sources: {
+    slaveConcubine: { from: 'concubine', result: 'femaleGeneral', desc: '侍妾→女武将' },
+    slaveArtisan:   { from: 'artisan', result: 'maleGeneral', desc: '匠奴→男武将' },
+    cityHire:       { cost: { gold: 500 }, desc: '城邦招聘武将' },
+    questReward:    { desc: '任务奖励武将' },
+  },
+  // 武将属性范围
+  baseStats: {
+    leadership: { min: 30, max: 100, name: '统率', desc: '影响带兵数量和军队士气' },
+    force:      { min: 20, max: 100, name: '武力', desc: '影响单挑和近战伤害' },
+    strategy:   { min: 20, max: 100, name: '智力', desc: '影响计策成功率和防御' },
+    politics:   { min: 10, max: 100, name: '政治', desc: '影响内政和外交' },
+    charisma:   { min: 10, max: 100, name: '魅力', desc: '影响招募和忠诚度' },
+  },
+  // 武将等级
+  ranks: [
+    { name: '伍长',   minLevel: 1,  maxTroops: 500,  bonus: 0 },
+    { name: '什长',   minLevel: 3,  maxTroops: 1000, bonus: 0.05 },
+    { name: '百夫长', minLevel: 5,  maxTroops: 2000, bonus: 0.1 },
+    { name: '千夫长', minLevel: 8,  maxTroops: 5000, bonus: 0.15 },
+    { name: '万夫长', minLevel: 12, maxTroops: 10000, bonus: 0.2 },
+    { name: '将军',   minLevel: 15, maxTroops: 20000, bonus: 0.3 },
+    { name: '大将军', minLevel: 20, maxTroops: 50000, bonus: 0.4 },
+  ],
+  // 生成随机武将
+  createGeneral: function(name, gender, source) {
+    const stats = {};
+    Object.entries(this.baseStats).forEach(([key, range]) => {
+      stats[key] = Math.floor(Math.random() * (range.max - range.min)) + range.min;
+    });
+    return {
+      id: `gen_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      name, gender, source,
+      level: 1, exp: 0,
+      stats,
+      loyalty: 70 + Math.floor(Math.random() * 20),
+      troops: {},  // { infantry: 100, cavalry: 50, ... }
+      rank: this.ranks[0],
+    };
+  },
+};
+
+// ===== CITIZEN JOB SYSTEM (公民职业系统) =====
+// 公民可分配的职业（奴隶不能承担这些职业）
+export const CITIZEN_JOBS = {
+  soldier:   { id: 'soldier',   name: '征兵入伍', icon: '⚔️', desc: '公民参军，增加可征召兵力', require: ['maleCitizen', 'femaleCitizen'], output: 'military' },
+  merchant:  { id: 'merchant',  name: '经商贸易', icon: '💰', desc: '公民经商，增加税收和贸易收入', require: ['maleCitizen', 'femaleCitizen', 'femaleMerchant'], output: 'gold', bonus: { femaleMerchant: 1.3 } },
+  craftsman: { id: 'craftsman', name: '工匠科技', icon: '🔬', desc: '工匠负责科技研发和建筑建造', require: ['craftsman'], output: 'tech' },
+  builder:   { id: 'builder',   name: '建筑建造', icon: '🏗️', desc: '工匠负责建造农场/市场/兵营', require: ['craftsman'], output: 'build' },
+  breeding:  { id: 'breeding',  name: '繁衍后代', icon: '👶', desc: '公民繁衍，增加人口', require: ['maleCitizen', 'femaleCitizen'], output: 'population' },
+};
+
+// ===== SLAVE-ONLY JOBS (奴隶专属职业) =====
+// 伐木、采矿、农业等只能由奴隶承担
+export const SLAVE_ONLY_JOBS = {
+  labor_farm:    { id: 'labor_farm',    name: '农业劳力', icon: '🌾', output: 'food',  perSlave: 2,  desc: '奴隶耕种（公民不可承担）' },
+  labor_mine:    { id: 'labor_mine',    name: '采矿劳力', icon: '⛏️', output: 'ore',   perSlave: 1,  desc: '奴隶采矿（公民不可承担）' },
+  labor_wood:    { id: 'labor_wood',    name: '伐木劳力', icon: '🪵', output: 'wood',  perSlave: 1,  desc: '奴隶伐木（公民不可承担）' },
+  entertainment: { id: 'entertainment', name: '舞女表演', icon: '💃', output: 'gold',  perSlave: 5,  desc: '舞女表演增加收入' },
+  sacrifice:     { id: 'sacrifice',     name: '祭祀牺牲', icon: '🔥', output: 'faith', perSlave: 10, desc: '祭祀提升士气' },
+};
+
+// 城邦/国家对奴隶类型的喜好
+export const SLAVE_PREFERENCES = {
+  // 女性国家 - 喜欢男奴隶（繁衍+体力劳动）
+  amazons:  { prefer: ['maleLaborer', 'warrior'],  dislike: ['concubine'], desc: '阿玛宗需要男奴繁衍后代和体力劳动', buyPremium: 1.5 },
+  xiliang:  { prefer: ['maleLaborer', 'warrior'],  dislike: ['dancer'],    desc: '西梁女国需要男奴繁衍后代', buyPremium: 1.4 },
+  // 文明城邦 - 喜欢舞女和匠奴
+  kucha:    { prefer: ['dancer', 'artisan'],       dislike: ['warrior'],   desc: '龟兹乐舞之都，喜爱舞女和匠人', buyPremium: 1.3 },
+  kashgar:  { prefer: ['artisan', 'dancer'],       dislike: [],            desc: '疏勒商贸中心，偏好匠奴', buyPremium: 1.2 },
+  khotan:   { prefer: ['femaleLaborer', 'artisan'], dislike: ['warrior'],  desc: '于阗玉石之城，偏好女工和匠人', buyPremium: 1.2 },
+  loulan:   { prefer: ['femaleLaborer', 'dancer'],  dislike: [],            desc: '楼兰偏好女奴和舞女', buyPremium: 1.1 },
+  // 游牧国家 - 喜欢战奴和劳奴
+  wusun:    { prefer: ['warrior', 'maleLaborer'],   dislike: ['dancer'],   desc: '乌孙尚武，偏好战奴', buyPremium: 1.3 },
+  kangju:   { prefer: ['warrior', 'maleLaborer'],   dislike: ['concubine'], desc: '康居尚武，偏好战奴和劳奴', buyPremium: 1.2 },
+  tokuz:    { prefer: ['warrior', 'maleLaborer'],   dislike: ['dancer'],   desc: '突骑施尚武，偏好战奴', buyPremium: 1.3 },
+  dayuan:   { prefer: ['maleLaborer', 'artisan'],   dislike: [],            desc: '大宛偏好劳奴和匠奴', buyPremium: 1.1 },
+  // 商贸城邦 - 喜欢匠奴
+  soche:    { prefer: ['artisan', 'dancer'],        dislike: ['warrior'],   desc: '粟特商人偏好匠奴和舞女', buyPremium: 1.4 },
+  // 六大帝国偏好
+  han:      { prefer: ['dancer', 'concubine', 'artisan'], dislike: ['warrior'], desc: '大汉偏好舞女、侍妾和匠奴', buyPremium: 2.0 },
+  xiongnu:  { prefer: ['warrior', 'maleLaborer'],   dislike: ['dancer'],    desc: '匈奴偏好战奴和劳奴', buyPremium: 1.8 },
+  kushan:   { prefer: ['dancer', 'artisan'],        dislike: [],             desc: '贵霜偏好舞女和匠奴', buyPremium: 1.6 },
+  parthia:  { prefer: ['concubine', 'dancer'],       dislike: ['maleLaborer'], desc: '安息偏好侍妾和舞女', buyPremium: 1.7 },
+  rome:     { prefer: ['warrior', 'dancer'],         dislike: [],             desc: '罗马偏好角斗士和舞女', buyPremium: 2.5 },
+  sassanid: { prefer: ['concubine', 'artisan'],      dislike: ['warrior'],    desc: '萨珊偏好侍妾和匠奴', buyPremium: 1.5 },
+};
+
+// 奴隶市场（买卖交易）- 每个市场有不同的奴隶类型供应
 export const SLAVE_MARKETS = {
-  kashgar:  { name: '疏勒奴隶市场', capacity: 200, price: { low: 50, high: 150 }, supply: 'high' },
-  khotan:   { name: '于阗奴隶市场', capacity: 100, price: { low: 60, high: 180 }, supply: 'medium' },
-  loulan:   { name: '楼兰奴隶市场', capacity: 80,  price: { low: 70, high: 200 }, supply: 'low' },
-  kangju:   { name: '康居奴隶市场', capacity: 150, price: { low: 40, high: 120 }, supply: 'high' },
-  soche:    { name: '粟特奴隶市场', capacity: 250, price: { low: 30, high: 100 }, supply: 'very_high' },
-  amazons:  { name: '阿玛宗奴市',   capacity: 60,  price: { low: 80, high: 250 }, supply: 'rare', femaleOnly: true },
-  xiliang:  { name: '西梁奴市',     capacity: 50,  price: { low: 90, high: 300 }, supply: 'rare', femaleOnly: true },
+  kashgar:  { name: '疏勒奴隶市场', capacity: 200, supply: { maleLaborer: 50, femaleLaborer: 30, artisan: 20, dancer: 10, warrior: 15, concubine: 5 } },
+  khotan:   { name: '于阗奴隶市场', capacity: 100, supply: { maleLaborer: 20, femaleLaborer: 40, artisan: 15, dancer: 10, warrior: 5, concubine: 10 } },
+  loulan:   { name: '楼兰奴隶市场', capacity: 80,  supply: { maleLaborer: 15, femaleLaborer: 25, artisan: 10, dancer: 15, warrior: 5, concubine: 10 } },
+  kangju:   { name: '康居奴隶市场', capacity: 150, supply: { maleLaborer: 50, femaleLaborer: 20, artisan: 10, dancer: 5, warrior: 40, concubine: 5 } },
+  soche:    { name: '粟特奴隶市场', capacity: 250, supply: { maleLaborer: 60, femaleLaborer: 40, artisan: 50, dancer: 30, warrior: 20, concubine: 20 } },
+  amazons:  { name: '阿玛宗奴市',   capacity: 60,  supply: { maleLaborer: 30, warrior: 20, artisan: 5, femaleLaborer: 0, dancer: 0, concubine: 0 } },
+  xiliang:  { name: '西梁奴市',     capacity: 50,  supply: { maleLaborer: 25, warrior: 15, artisan: 5, femaleLaborer: 0, dancer: 0, concubine: 0 } },
+  wusun:    { name: '乌孙奴市',     capacity: 100, supply: { maleLaborer: 30, femaleLaborer: 15, warrior: 25, artisan: 10, dancer: 5, concubine: 5 } },
 };
 
 // 掠夺规则：同盟/归降/占领30天以上不可掠夺
+// 掠夺不同城邦/部落获得的奴隶类型不同
 export const PLUNDER_RULES = {
   canPlunder: (tribe, state) => {
     if (state.alliances.includes(tribe.nation)) return false;
@@ -375,7 +572,85 @@ export const PLUNDER_RULES = {
     }
     return true;
   },
+  // 掠夺奴隶产出 - 根据部落所属城邦决定奴隶类型分布
+  getPlunderYield: (tribe) => {
+    const nation = tribe.nation;
+    const base = { maleLaborer: 0, femaleLaborer: 0, dancer: 0, warrior: 0, concubine: 0, artisan: 0 };
+    const total = Math.floor(Math.random() * 20) + 5;
+
+    // 阿玛宗 - 掠夺获得基本都是女奴隶
+    if (nation === 'amazons') {
+      base.femaleLaborer = Math.floor(total * 0.4);
+      base.warrior = Math.floor(total * 0.3); // 女战士
+      base.dancer = Math.floor(total * 0.15);
+      base.concubine = Math.floor(total * 0.15);
+    }
+    // 西梁女国 - 掠夺获得基本都是女奴隶
+    else if (nation === 'xiliang') {
+      base.femaleLaborer = Math.floor(total * 0.5);
+      base.dancer = Math.floor(total * 0.2);
+      base.concubine = Math.floor(total * 0.15);
+      base.artisan = Math.floor(total * 0.15);
+    }
+    // 游牧国家 - 多战奴和男劳奴
+    else if (['wusun', 'kangju', 'tokuz', 'dayuan'].includes(nation)) {
+      base.maleLaborer = Math.floor(total * 0.4);
+      base.warrior = Math.floor(total * 0.35);
+      base.femaleLaborer = Math.floor(total * 0.15);
+      base.artisan = Math.floor(total * 0.1);
+    }
+    // 文明城邦 - 多匠奴和舞女
+    else if (['kucha', 'kashgar', 'khotan', 'soche'].includes(nation)) {
+      base.femaleLaborer = Math.floor(total * 0.25);
+      base.maleLaborer = Math.floor(total * 0.2);
+      base.artisan = Math.floor(total * 0.2);
+      base.dancer = Math.floor(total * 0.2);
+      base.concubine = Math.floor(total * 0.1);
+      base.warrior = Math.floor(total * 0.05);
+    }
+    // 其他城邦 - 混合
+    else {
+      base.maleLaborer = Math.floor(total * 0.35);
+      base.femaleLaborer = Math.floor(total * 0.25);
+      base.warrior = Math.floor(total * 0.15);
+      base.artisan = Math.floor(total * 0.1);
+      base.dancer = Math.floor(total * 0.1);
+      base.concubine = Math.floor(total * 0.05);
+    }
+    return base;
+  },
   plunderYield: { min: 5, max: 30, goldMin: 20, goldMax: 100 },
+};
+
+// 奴隶贡品/赠礼效果
+export const SLAVE_TRIBUTE = {
+  // 赠送给六大帝国的效果
+  majorPower: {
+    han:      { bestGift: ['dancer', 'concubine'], relationBonus: 15, goldBonus: 0, desc: '大汉喜爱舞女和侍妾' },
+    xiongnu:  { bestGift: ['warrior', 'maleLaborer'], relationBonus: 12, goldBonus: 0, desc: '匈奴喜爱战奴和劳奴' },
+    kushan:   { bestGift: ['dancer', 'artisan'], relationBonus: 10, goldBonus: 50, desc: '贵霜喜爱舞女和匠奴' },
+    parthia:  { bestGift: ['concubine', 'dancer'], relationBonus: 12, goldBonus: 30, desc: '安息喜爱侍妾和舞女' },
+    rome:     { bestGift: ['warrior', 'dancer'], relationBonus: 8, goldBonus: 100, desc: '罗马喜爱角斗士和舞女' },
+    sassanid: { bestGift: ['concubine', 'artisan'], relationBonus: 10, goldBonus: 40, desc: '萨珊喜爱侍妾和匠奴' },
+  },
+  // 赠送给城邦的效果
+  cityState: {
+    amazons:  { bestGift: ['maleLaborer', 'warrior'], relationBonus: 20, desc: '阿玛宗急需男奴繁衍' },
+    xiliang:  { bestGift: ['maleLaborer', 'warrior'], relationBonus: 18, desc: '西梁女国需要男奴' },
+    kucha:    { bestGift: ['dancer', 'artisan'], relationBonus: 12, desc: '龟兹喜爱舞女' },
+    kashgar:  { bestGift: ['artisan', 'dancer'], relationBonus: 10, desc: '疏勒偏好匠奴' },
+    default:  { bestGift: ['femaleLaborer', 'maleLaborer'], relationBonus: 8, desc: '通用赠礼' },
+  },
+  // 计算赠礼效果
+  calcGiftEffect: function(targetId, slaveType, count, isMajorPower) {
+    const table = isMajorPower ? this.majorPower : this.cityState;
+    const entry = table[targetId] || table.default;
+    const isBest = entry.bestGift.includes(slaveType);
+    const baseRelation = isBest ? entry.relationBonus : Math.floor(entry.relationBonus / 3);
+    const relationGain = baseRelation * Math.min(count, 10);
+    const goldGain = (entry.goldBonus || 0) * Math.min(count, 5);
+    return { relationGain, goldGain, isBest, desc: entry.desc };
+  },
 };
 
 // ===== RECRUITMENT (from tribes only - 部落征召) =====

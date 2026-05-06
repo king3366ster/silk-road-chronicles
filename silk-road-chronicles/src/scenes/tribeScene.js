@@ -1,12 +1,12 @@
 /**
- * Tribe Scene v2 - 部落管理
- * 108 tribes, slave roles (labor/breeding/entertainment/sacrifice/training), plunder rules
+ * Tribe Scene v3 - 部落管理
+ * 6 slave types, typed plunder, tribute system
  */
 import { state } from '../core/gameState.js';
 import { NATIONS } from '../data/nations.js';
-import { TRIBES_FULL, GARRISONS, RESOURCE_TYPES, SLAVE_MARKETS, SLAVE_ROLES, SLAVE_TRAINING, PLUNDER_RULES, RECRUIT_RULES, INFLUENCE_ZONES, UNIT_TYPES } from '../data/worldData.js';
+import { TRIBES_FULL, GARRISONS, RESOURCE_TYPES, SLAVE_TYPES, SLAVE_MARKETS, SLAVE_ROLES, SLAVE_TRAINING, SLAVE_PREFERENCES, PLUNDER_RULES, RECRUIT_RULES, INFLUENCE_ZONES, UNIT_TYPES } from '../data/worldData.js';
 
-let _tab = 'tribes'; // tribes | garrison | slaves | trade | recruit | influence
+let _tab = 'tribes';
 let _nationFilter = 'all';
 let _scrollY = 0;
 
@@ -20,7 +20,6 @@ export function showTribe(game) {
 function _renderTribe(game) {
   game.ui.createPanel(20, 20, game.w - 40, game.h - 40, '🏕️ 部落与势力管理');
 
-  // Tab bar
   const tabs = ['tribes|部落总览', 'garrison|城邦守军', 'slaves|奴隶管理', 'trade|奴隶买卖', 'recruit|征兵招募', 'influence|六大帝国'];
   let tx = 40;
   tabs.forEach(t => {
@@ -31,7 +30,6 @@ function _renderTribe(game) {
     tx += 100;
   });
 
-  // Content area
   const cx = 50, cy = 100, cw = game.w - 100, ch = game.h - 180;
   game.ui.createPanel(cx, cy, cw, ch, '', 0x1a1008);
 
@@ -46,7 +44,6 @@ function _renderTribe(game) {
 }
 
 function _renderTribes(game, x, y, w, h) {
-  // Nation filter
   game.ui.createText(x, y, '筛选城邦:', { fontSize: 12, fill: 0xD4A853 });
   const nations = ['all|全部', ...Object.keys(NATIONS).slice(0, 10).map(k => `${k}|${NATIONS[k].name}`)];
   let fx = x + 70;
@@ -91,7 +88,6 @@ function _renderTribes(game, x, y, w, h) {
     }).join(' ');
     game.ui.createText(x + 320, rowY, resStr, { fontSize: 11, fill: 0x85C1E9 });
 
-    // Action buttons
     game.ui.createButton(x + w - 200, rowY - 5, 55, 20, '征兵', () => _recruitFrom(game, t), 0x8B0000);
     game.ui.createButton(x + w - 140, rowY - 5, 55, 20, '贸易', () => _tradeWith(game, t), 0x2E4053);
     if (canPlunder) {
@@ -99,26 +95,19 @@ function _renderTribes(game, x, y, w, h) {
     }
   }
 
-  // Summary
   const totalPop = filtered.reduce((s, t) => s + t.pop, 0);
   const totalTroops = filtered.reduce((s, t) => s + t.troops, 0);
   game.ui.createText(x, y + maxRows * 22 + 10,
     `共 ${filtered.length} 个部落 | 总人口: ${totalPop.toLocaleString()} | 可征兵: ${totalTroops.toLocaleString()}`,
     { fontSize: 13, fill: 0xFFD700, bold: true });
   game.ui.createText(x, y + maxRows * 22 + 30,
-    '💡 同盟/归降/占领30天以上的部落不可掠夺奴隶',
+    '💡 同盟/归降/占领30天以上的部落不可掠夺 | 掠夺阿玛宗/西梁获得女奴隶',
     { fontSize: 11, fill: 0x888888 });
 }
 
 function _renderGarrison(game, x, y, w, h) {
   game.ui.createText(x, y, '🏰 城邦守军', { fontSize: 14, fill: 0xFFD700, bold: true }); y += 25;
-
   game.ui.createText(x, y, '【城邦守兵】', { fontSize: 12, fill: 0xD4A853, bold: true }); y += 20;
-  game.ui.createText(x, y, '城邦', { fontSize: 10, fill: 0x888888 });
-  game.ui.createText(x + 80, y, '兵力', { fontSize: 10, fill: 0x888888 });
-  game.ui.createText(x + 130, y, '类型', { fontSize: 10, fill: 0x888888 });
-  game.ui.createText(x + 190, y, '士气', { fontSize: 10, fill: 0x888888 });
-  y += 18;
 
   const cityEntries = Object.entries(GARRISONS.cities);
   for (let i = 0; i < Math.min(cityEntries.length, Math.floor((h - 140) / 18)); i++) {
@@ -137,18 +126,13 @@ function _renderGarrison(game, x, y, w, h) {
   y += 10;
   game.ui.createText(x, y, '【关隘守兵】', { fontSize: 12, fill: 0xD4A853, bold: true }); y += 20;
   Object.entries(GARRISONS.passes).forEach(([name, g]) => {
-    game.ui.createText(x, y, `🏔️ ${name}`, { fontSize: 11, fill: 0xDEB887 });
-    game.ui.createText(x + 100, y, `兵力:${g.troops}`, { fontSize: 11, fill: 0xE74C3C });
-    game.ui.createText(x + 170, y, `士气:${g.morale}`, { fontSize: 11, fill: 0x27AE60 });
+    game.ui.createText(x, y, `🏔️ ${name}: 兵力${g.troops} 士气${g.morale}`, { fontSize: 11, fill: 0xDEB887 });
     y += 18;
   });
-
   y += 5;
   game.ui.createText(x, y, '【渡口守兵】', { fontSize: 12, fill: 0xD4A853, bold: true }); y += 20;
   Object.entries(GARRISONS.ferries).forEach(([name, g]) => {
-    game.ui.createText(x, y, `⚓ ${name}`, { fontSize: 11, fill: 0x5DADE2 });
-    game.ui.createText(x + 100, y, `兵力:${g.troops}`, { fontSize: 11, fill: 0xE74C3C });
-    game.ui.createText(x + 170, y, `士气:${g.morale}`, { fontSize: 11, fill: 0x27AE60 });
+    game.ui.createText(x, y, `⚓ ${name}: 兵力${g.troops} 士气${g.morale}`, { fontSize: 11, fill: 0x5DADE2 });
     y += 18;
   });
 }
@@ -158,142 +142,176 @@ function _renderSlaves(game, x, y, w, h) {
   const assigned = Object.values(s.assigned).reduce((a, b) => a + b, 0);
   const available = s.total - assigned;
 
-  game.ui.createText(x, y, '⛓️ 奴隶管理', { fontSize: 16, fill: 0xFFD700, bold: true });
+  game.ui.createText(x, y, '⛓️ 奴隶管理（六大类型）', { fontSize: 16, fill: 0xFFD700, bold: true });
   y += 25;
   game.ui.createText(x, y, `奴隶总数: ${s.total} | 已分配: ${assigned} | 可用: ${available}`, { fontSize: 13, fill: 0xD4A853 });
   y += 25;
 
-  // Slave roles
-  game.ui.createText(x, y, '【奴隶分配】', { fontSize: 13, fill: 0xFFD700, bold: true }); y += 22;
+  // Slave inventory by type
+  game.ui.createText(x, y, '【奴隶库存】', { fontSize: 13, fill: 0xFFD700, bold: true }); y += 22;
+  Object.entries(SLAVE_TYPES).forEach(([id, st]) => {
+    const count = s.inventory[id] || 0;
+    game.ui.createPanel(x, y, w - 20, 35, '', 0x1a0a04);
+    game.ui.createText(x + 10, y + 5, `${st.icon} ${st.name}: ${count}`, { fontSize: 12, fill: st.color, bold: true });
+    game.ui.createText(x + 150, y + 5, `单价:${st.basePrice}金 | ${st.gender === 'female' ? '♀女' : st.gender === 'male' ? '♂男' : '⚧通用'}`, { fontSize: 11, fill: 0xCCCCCC });
+    game.ui.createText(x + 10, y + 20, st.desc, { fontSize: 10, fill: 0x888888 });
+    y += 40;
+  });
 
+  // Slave role assignment
+  y += 5;
+  game.ui.createText(x, y, '【奴隶分配】', { fontSize: 13, fill: 0xFFD700, bold: true }); y += 22;
   Object.entries(SLAVE_ROLES).forEach(([id, role]) => {
     const count = s.assigned[id] || 0;
-    game.ui.createPanel(x, y, w - 20, 40, '', 0x1a0a04);
+    game.ui.createPanel(x, y, w - 20, 35, '', 0x1a0a04);
     game.ui.createText(x + 10, y + 5, `${role.icon} ${role.name}: ${count}`, { fontSize: 12, fill: 0xF0E68C, bold: true });
-    game.ui.createText(x + 10, y + 22, role.desc, { fontSize: 10, fill: 0x888888 });
+    const acceptNames = role.acceptTypes.map(t => SLAVE_TYPES[t]?.name || t).join('、');
+    game.ui.createText(x + 10, y + 20, `${role.desc} | 适用: ${acceptNames}`, { fontSize: 10, fill: 0x888888 });
 
-    game.ui.createButton(x + w - 140, y + 5, 50, 26, '+1', () => {
+    game.ui.createButton(x + w - 140, y + 3, 50, 26, '+1', () => {
       const added = state.assignSlave(id, 1);
       if (added > 0) _renderTribe(game);
       else alert('没有可用奴隶！');
     }, 0x2E4053);
-    game.ui.createButton(x + w - 80, y + 5, 50, 26, '-1', () => {
+    game.ui.createButton(x + w - 80, y + 3, 50, 26, '-1', () => {
       state.unassignSlave(id, 1);
       _renderTribe(game);
     }, 0x8B0000);
-    y += 46;
+    y += 40;
   });
 
   // Slave training
-  y += 10;
+  y += 5;
   game.ui.createText(x, y, '【奴隶培训改造】', { fontSize: 13, fill: 0xFFD700, bold: true }); y += 22;
-
   Object.entries(SLAVE_TRAINING).forEach(([id, train]) => {
+    const fromName = SLAVE_TYPES[train.fromType]?.name || train.fromType;
     const costStr = Object.entries(train.cost).map(([k, v]) => `${k}:${v}`).join(' ');
-    game.ui.createPanel(x, y, w - 20, 40, '', 0x1a0a04);
-    game.ui.createText(x + 10, y + 5, `${train.name} (${train.turns}回合)`, { fontSize: 12, fill: 0xF0E68C, bold: true });
-    game.ui.createText(x + 10, y + 22, `${train.desc} | 费用: ${costStr}`, { fontSize: 10, fill: 0x888888 });
+    const haveSource = (s.inventory[train.fromType] || 0) > 0;
+    game.ui.createPanel(x, y, w - 20, 35, '', 0x1a0a04);
+    game.ui.createText(x + 10, y + 5, `${train.name} (${fromName}→${train.result}, ${train.turns}回合)`, { fontSize: 11, fill: haveSource ? 0xF0E68C : 0x666666, bold: true });
+    game.ui.createText(x + 10, y + 20, `费用: ${costStr} | ${train.desc}`, { fontSize: 10, fill: 0x888888 });
 
-    game.ui.createButton(x + w - 80, y + 5, 60, 26, '培训', () => {
+    game.ui.createButton(x + w - 80, y + 3, 60, 26, '培训', () => {
       if (state.player.gold >= (train.cost.gold || 0)) {
         state.player.gold -= (train.cost.gold || 0);
-        state.trainSlave(train);
-        alert(`开始${train.name}，需${train.turns}回合`);
-        _renderTribe(game);
-      } else {
-        alert('金币不足！');
-      }
-    }, 0x2E4053);
-    y += 46;
+        if (state.trainSlave(train)) {
+          alert(`开始${train.name}，需${train.turns}回合`);
+          _renderTribe(game);
+        } else {
+          alert(`没有可用的${fromName}！`);
+          state.player.gold += (train.cost.gold || 0);
+        }
+      } else alert('金币不足！');
+    }, haveSource ? 0x2E4053 : 0x333333);
+    y += 40;
   });
 
   // Training in progress
   if (s.training.length > 0) {
-    y += 10;
+    y += 5;
     game.ui.createText(x, y, '【培训中】', { fontSize: 12, fill: 0xD4A853 }); y += 20;
     s.training.forEach(t => {
       game.ui.createText(x + 10, y, `${t.type} → ${t.result} (剩余${t.turnsLeft}回合)`, { fontSize: 11, fill: 0xCCCCCC });
       y += 18;
     });
   }
-
-  // Trained citizens
-  y += 10;
-  game.ui.createText(x, y, '【已培训公民】', { fontSize: 12, fill: 0xD4A853 }); y += 20;
-  Object.entries(state.trainedCitizens).forEach(([k, v]) => {
-    if (v > 0) {
-      game.ui.createText(x + 10, y, `${k}: ${v}`, { fontSize: 11, fill: 0x27AE60 });
-      y += 18;
-    }
-  });
 }
 
 function _renderSlaveTrade(game, x, y, w, h) {
-  game.ui.createText(x, y, '💰 奴隶买卖市场', { fontSize: 16, fill: 0xFFD700, bold: true });
+  game.ui.createText(x, y, '💰 奴隶买卖市场（按类型交易）', { fontSize: 16, fill: 0xFFD700, bold: true });
   y += 15;
-  const available = state.slaves.total - Object.values(state.slaves.assigned).reduce((a, b) => a + b, 0);
-  game.ui.createText(x, y, `金币: ${state.player.gold} | 拥有奴隶: ${state.slaves.total} | 可出售: ${available}`, { fontSize: 12, fill: 0xD4A853 });
-  y += 30;
+  game.ui.createText(x, y, `金币: ${state.player.gold} | 奴隶总数: ${state.slaves.total}`, { fontSize: 12, fill: 0xD4A853 });
+  y += 25;
 
+  // Show inventory
+  game.ui.createText(x, y, '【当前库存】', { fontSize: 12, fill: 0xD4A853, bold: true }); y += 20;
+  const invStr = Object.entries(state.slaves.inventory).map(([k, v]) => {
+    const st = SLAVE_TYPES[k];
+    return `${st?.icon || ''}${st?.name || k}:${v}`;
+  }).join('  ');
+  game.ui.createText(x + 10, y, invStr, { fontSize: 11, fill: 0xF0E68C });
+  y += 25;
+
+  // Markets with typed supply
+  game.ui.createText(x, y, '【奴隶市场】', { fontSize: 13, fill: 0xFFD700, bold: true }); y += 22;
   Object.entries(SLAVE_MARKETS).forEach(([id, market]) => {
     const nation = NATIONS[id];
     const nc = nation ? parseInt(nation.color.slice(1), 16) : 0xAAAAAA;
-    game.ui.createPanel(x, y, w - 20, 65, '', 0x1a0a04);
-    game.ui.createText(x + 10, y + 5, `${market.femaleOnly ? '♀' : '⛓️'} ${market.name}`, { fontSize: 13, fill: nc, bold: true });
-    game.ui.createText(x + 10, y + 25, `容量: ${market.capacity} | 价格: ${market.price.low}-${market.price.high}金 | 供给: ${market.supply}`, { fontSize: 11, fill: 0xCCCCCC });
-    if (market.femaleOnly) {
-      game.ui.createText(x + 10, y + 42, '♀ 仅限女性奴隶', { fontSize: 11, fill: 0xFF69B4 });
+    const pref = SLAVE_PREFERENCES[id];
+    game.ui.createPanel(x, y, w - 20, 75, '', 0x1a0a04);
+    game.ui.createText(x + 10, y + 5, `${market.name}`, { fontSize: 13, fill: nc, bold: true });
+    game.ui.createText(x + 10, y + 22, `容量:${market.capacity}`, { fontSize: 11, fill: 0xCCCCCC });
+    if (pref) {
+      const prefNames = pref.prefer.map(t => SLAVE_TYPES[t]?.name || t).join('、');
+      game.ui.createText(x + 10, y + 38, `偏好: ${prefNames} (${pref.desc})`, { fontSize: 10, fill: 0x27AE60 });
     }
 
-    game.ui.createButton(x + w - 160, y + 15, 60, 28, '购买x5', () => _buySlaves(game, id, 5), 0x8B0000);
-    game.ui.createButton(x + w - 90, y + 15, 60, 28, '出售x5', () => _sellSlaves(game, id, 5), 0x2E4053);
-    y += 72;
+    // Supply display
+    const supplyStr = Object.entries(market.supply).filter(([, v]) => v > 0).map(([k, v]) => {
+      const st = SLAVE_TYPES[k];
+      return `${st?.icon || ''}${v}`;
+    }).join(' ');
+    game.ui.createText(x + 10, y + 54, `供应: ${supplyStr}`, { fontSize: 10, fill: 0x85C1E9 });
+
+    // Buy buttons for each available type
+    let bx = x + w - 280;
+    Object.entries(market.supply).filter(([, v]) => v > 0).slice(0, 4).forEach(([type, supply]) => {
+      const st = SLAVE_TYPES[type];
+      if (!st) return;
+      const price = st.basePrice;
+      game.ui.createButton(bx, y + 5, 60, 24, `${st.icon}买`, () => {
+        if (state.player.gold >= price) {
+          state.buySlaves(type, 1, price);
+          alert(`购买1名${st.name}，花费${price}金`);
+          _renderTribe(game);
+        } else alert('金币不足！');
+      }, 0x8B0000);
+      game.ui.createButton(bx, y + 32, 60, 24, `${st.icon}卖`, () => {
+        const sold = state.sellSlaves(type, 1, Math.floor(price * 0.7));
+        if (sold > 0) { alert(`出售1名${st.name}，获得${Math.floor(price * 0.7)}金`); _renderTribe(game); }
+        else alert(`没有可出售的${st.name}`);
+      }, 0x2E4053);
+      bx += 65;
+    });
+    y += 82;
   });
 
-  y += 10;
-  game.ui.createText(x, y, '💡 可从敌对部落掠夺奴隶。同盟/归降/占领30天以上不可掠夺。', { fontSize: 11, fill: 0x888888 });
+  y += 5;
+  game.ui.createText(x, y, '💡 不同市场供应不同类型奴隶。阿玛宗/西梁只卖男奴，偏好也各不同。', { fontSize: 11, fill: 0x888888 });
 }
 
 function _renderRecruit(game, x, y, w, h) {
   game.ui.createText(x, y, '⚔️ 征兵与招募', { fontSize: 14, fill: 0xFFD700, bold: true }); y += 25;
-
   game.ui.createText(x, y, '【部落征召方式】', { fontSize: 12, fill: 0xD4A853, bold: true }); y += 22;
   Object.entries(RECRUIT_RULES).forEach(([id, rule]) => {
-    game.ui.createPanel(x, y, w - 20, 50, '', 0x1a0a04);
+    game.ui.createPanel(x, y, w - 20, 40, '', 0x1a0a04);
     game.ui.createText(x + 10, y + 5, rule.desc + (rule.femaleOnly ? ' ♀' : ''), { fontSize: 12, fill: rule.femaleOnly ? 0xFF69B4 : 0xFFD700, bold: true });
     const costStr = Object.entries(rule.cost).map(([k, v]) => `${k}:${v}`).join(' ');
-    game.ui.createText(x + 10, y + 25, `费用: ${costStr} | 产出: ${rule.yield.min}-${rule.yield.max}人 | 兵种: ${rule.types.join(', ')}`, { fontSize: 11, fill: 0xCCCCCC });
-    y += 55;
+    game.ui.createText(x + 10, y + 22, `费用: ${costStr} | 产出: ${rule.yield.min}-${rule.yield.max}人 | 兵种: ${rule.types.join(', ')}`, { fontSize: 11, fill: 0xCCCCCC });
+    y += 45;
   });
 
   y += 10;
-  game.ui.createText(x, y, '【雇佣兵】(即时生效，金币购买)', { fontSize: 12, fill: 0xD4A853, bold: true }); y += 22;
-  game.ui.createText(x, y, '前往军事管理→雇佣兵页面购买', { fontSize: 11, fill: 0xAAAAAA }); y += 20;
-
-  y += 10;
-  game.ui.createText(x, y, '【城邦招聘】(需前往城邦)', { fontSize: 12, fill: 0xD4A853, bold: true }); y += 22;
-  game.ui.createText(x, y, '武将 - 前往城邦酒馆招募，200金+5丝绸', { fontSize: 11, fill: 0xE74C3C }); y += 18;
-  game.ui.createText(x, y, '文官 - 前往城邦学堂招聘，150金+3玉石', { fontSize: 11, fill: 0x3498DB }); y += 18;
-  game.ui.createText(x, y, '商人 - 前往城邦集市雇佣，100金+5香料', { fontSize: 11, fill: 0xF39C12 }); y += 18;
-  game.ui.createText(x, y, '密探 - 前往城邦暗巷寻觅，300金', { fontSize: 11, fill: 0x8E44AD }); y += 25;
-
-  game.ui.createText(x, y, '💡 从部落征兵会降低忠诚度，志愿兵则提升忠诚度。', { fontSize: 11, fill: 0x888888 });
+  game.ui.createText(x, y, '【城邦招聘】', { fontSize: 12, fill: 0xD4A853, bold: true }); y += 22;
+  game.ui.createText(x, y, '武将200金+5丝绸 | 文官150金+3玉石 | 商人100金+5香料 | 密探300金', { fontSize: 11, fill: 0xAAAAAA });
 }
 
 function _renderInfluence(game, x, y, w, h) {
   game.ui.createText(x, y, '🌍 六大帝国势力范围', { fontSize: 14, fill: 0xFFD700, bold: true }); y += 25;
-
   const colors = { han: 0xDC143C, xiongnu: 0x8B4513, kushan: 0xDAA520, parthia: 0x9B59B6, rome: 0x3498DB, sassanid: 0x8B008B };
 
   Object.entries(INFLUENCE_ZONES).forEach(([id, zone]) => {
     const c = colors[id] || 0xAAAAAA;
-    game.ui.createPanel(x, y, w - 20, 80, '', 0x1a0a04);
+    const pref = SLAVE_PREFERENCES[id];
+    game.ui.createPanel(x, y, w - 20, 75, '', 0x1a0a04);
     game.ui.createText(x + 10, y + 5, zone.name, { fontSize: 14, fill: c, bold: true });
-    game.ui.createText(x + 10, y + 25, `影响力: ${zone.influence}% | 驻军: ${zone.troops} | 位置: ${zone.garrison}`, { fontSize: 11, fill: 0xCCCCCC });
-    const zoneNames = zone.zones.map(z => NATIONS[z]?.name || z).join('、');
-    game.ui.createText(x + 10, y + 45, `势力范围: ${zoneNames || '无直接控制'}`, { fontSize: 11, fill: 0xAAAAAA });
-    game.ui.createProgressBar(x + 10, y + 62, 200, 8, zone.influence, 100, c);
-    y += 90;
+    game.ui.createText(x + 10, y + 25, `影响力: ${zone.influence}% | 驻军: ${zone.troops}`, { fontSize: 11, fill: 0xCCCCCC });
+    if (pref) {
+      const prefNames = pref.prefer.map(t => SLAVE_TYPES[t]?.name || t).join('、');
+      game.ui.createText(x + 10, y + 42, `奴隶偏好: ${prefNames} | ${pref.desc}`, { fontSize: 11, fill: 0x27AE60 });
+    }
+    game.ui.createProgressBar(x + 10, y + 60, 200, 8, zone.influence, 100, c);
+    y += 82;
   });
 }
 
@@ -305,9 +323,7 @@ function _recruitFrom(game, tribe) {
   const unitType = isFemale
     ? (Math.random() > 0.5 ? 'femaleInfantry' : 'femaleCavalry')
     : (Math.random() > 0.5 ? 'infantry' : 'cavalry');
-  if (state.army[unitType] !== undefined) {
-    state.army[unitType] += count;
-  }
+  if (state.army[unitType] !== undefined) state.army[unitType] += count;
   state.player.gold -= 10;
   state.resources.food -= 5;
   alert(`从${tribe.name}征得 ${UNIT_TYPES[unitType]?.name || unitType} x${count}！`);
@@ -317,8 +333,7 @@ function _tradeWith(game, tribe) {
   const resKeys = Object.keys(tribe.res);
   if (resKeys.length > 0) {
     const res = resKeys[Math.floor(Math.random() * resKeys.length)];
-    const amount = tribe.res[res];
-    alert(`与${tribe.name}交易获得 ${RESOURCE_TYPES[res]?.icon || ''}${RESOURCE_TYPES[res]?.name || res} x${amount}`);
+    alert(`与${tribe.name}交易获得 ${RESOURCE_TYPES[res]?.icon || ''}${RESOURCE_TYPES[res]?.name || res} x${tribe.res[res]}`);
   }
 }
 
@@ -327,30 +342,10 @@ function _plunderTribe(game, tribe) {
     alert('该部落已归降/同盟/占领超过30天，不可掠夺！');
     return;
   }
-  const result = state.plunderSlaves(tribe);
-  alert(`掠夺${tribe.name}！获得 ${result.slaves} 名奴隶，${result.gold} 金币`);
-}
-
-function _buySlaves(game, marketId, count) {
-  const market = SLAVE_MARKETS[marketId];
-  const avgPrice = (market.price.low + market.price.high) / 2;
-  const cost = Math.floor(count * avgPrice);
-  if (state.player.gold >= cost) {
-    state.buySlaves(count, cost);
-    alert(`在${market.name}购买 ${count} 名奴隶，花费 ${cost} 金`);
-    _renderTribe(game);
-  } else {
-    alert('金币不足！');
-  }
-}
-
-function _sellSlaves(game, marketId, count) {
-  const market = SLAVE_MARKETS[marketId];
-  const sold = state.sellSlaves(count, market.price.low);
-  if (sold > 0) {
-    alert(`在${market.name}出售 ${sold} 名奴隶`);
-    _renderTribe(game);
-  } else {
-    alert('没有可出售的奴隶（需先从分配中释放）');
-  }
+  const result = state.plunderSlaves(tribe, PLUNDER_RULES.getPlunderYield);
+  const detailStr = Object.entries(result.typed).filter(([, v]) => v > 0).map(([k, v]) => {
+    const st = SLAVE_TYPES[k];
+    return `${st?.icon || ''}${st?.name || k}x${v}`;
+  }).join('、');
+  alert(`掠夺${tribe.name}！\n获得: ${detailStr}\n金币: ${result.gold}`);
 }
