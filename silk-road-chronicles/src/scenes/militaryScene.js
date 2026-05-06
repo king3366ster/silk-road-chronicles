@@ -1,10 +1,10 @@
 /**
- * Military Scene v2 - 军事管理
- * 6 unit types with counter system, mercenaries
+ * Military Scene v3 - 军事管理
+ * 7 unit types with counter system, mercenaries, all-female nation support
  */
 import { state } from '../core/gameState.js';
 import { NATION_LIST } from '../data/nations.js';
-import { UNIT_TYPES, COUNTER_TABLE, MERCENARY_TYPES } from '../data/worldData.js';
+import { UNIT_TYPES, COUNTER_TABLE, MERCENARY_TYPES, isAllFemaleNation } from '../data/worldData.js';
 
 let _tab = 'army'; // army | counter | mercenary | recruit
 
@@ -47,7 +47,7 @@ function _renderArmy(game, x, y, w, h) {
   game.ui.createText(x, y, `总兵力: ${total}  士气: ${a.morale}`, { fontSize: 16, fill: 0xFFD700, bold: true });
   y += 30;
 
-  // 6 unit types display
+  // 7 unit types display (含女弓骑兵)
   const units = [
     { key: 'infantry', ...UNIT_TYPES.infantry },
     { key: 'cavalry', ...UNIT_TYPES.cavalry },
@@ -55,6 +55,7 @@ function _renderArmy(game, x, y, w, h) {
     { key: 'camel', ...UNIT_TYPES.camel },
     { key: 'femaleInfantry', ...UNIT_TYPES.femaleInfantry },
     { key: 'femaleCavalry', ...UNIT_TYPES.femaleCavalry },
+    { key: 'femaleArcherCav', ...UNIT_TYPES.femaleArcherCav },
   ];
 
   units.forEach(u => {
@@ -94,7 +95,7 @@ function _renderCounter(game, x, y, w, h) {
 
   game.ui.createText(x, y, '克制链: 弓骑→步兵→骆驼→骑兵→弓骑', { fontSize: 13, fill: 0xD4A853 });
   y += 20;
-  game.ui.createText(x, y, '女兵克制同类型男兵（士气优势）', { fontSize: 13, fill: 0xFF69B4 });
+  game.ui.createText(x, y, '女兵克制同类型男兵（士气优势）| 女弓骑兵克制步兵与骆驼', { fontSize: 13, fill: 0xFF69B4 });
   y += 20;
   game.ui.createText(x, y, '骆驼兵在沙漠地形战力×1.5', { fontSize: 13, fill: 0xD4A853 });
   y += 30;
@@ -159,6 +160,7 @@ function _renderRecruit(game, x, y, w, h) {
   game.ui.createText(x, y, `金币: ${state.player.gold} | 粮食: ${state.resources.food} | 马: ${state.resources.horse} | 骆驼: ${state.resources.camel}`, { fontSize: 12, fill: 0xD4A853 });
   y += 30;
 
+  // 7 unit types for recruitment (含女弓骑兵)
   const units = [
     { key: 'infantry', ...UNIT_TYPES.infantry },
     { key: 'cavalry', ...UNIT_TYPES.cavalry },
@@ -166,6 +168,7 @@ function _renderRecruit(game, x, y, w, h) {
     { key: 'camel', ...UNIT_TYPES.camel },
     { key: 'femaleInfantry', ...UNIT_TYPES.femaleInfantry },
     { key: 'femaleCavalry', ...UNIT_TYPES.femaleCavalry },
+    { key: 'femaleArcherCav', ...UNIT_TYPES.femaleArcherCav },
   ];
 
   units.forEach(u => {

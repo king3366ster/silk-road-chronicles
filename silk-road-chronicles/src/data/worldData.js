@@ -248,9 +248,10 @@ export const RESOURCE_TYPES = {
   labor: { name: '劳动力', icon: '👷', category: 'labor', desc: '用于建设和生产' },
 };
 
-// ===== 6 UNIT TYPES WITH COUNTER SYSTEM =====
+// ===== 7 UNIT TYPES WITH COUNTER SYSTEM =====
 // 克制关系: 弓骑→步兵, 步兵→骆驼, 骆驼→骑兵, 骑兵→弓骑
 // 女兵克制同类型男兵（士气优势）
+// 女弓骑兵：骑射精锐，克制步兵和骆驼，被骑兵和骆驼克制
 export const UNIT_TYPES = {
   infantry: {
     id: 'infantry', name: '步兵', icon: '⚔️', color: 0x3498DB,
@@ -295,7 +296,7 @@ export const UNIT_TYPES = {
     atk: 9, def: 11, spd: 4, range: 1,
     cost: { gold: 18, food: 5 },
     counters: ['infantry', 'camel'],
-    counteredBy: ['archerCav'],
+    counteredBy: ['archerCav', 'femaleArcherCav'],
     recruitFrom: 'tribe',
     femaleOnly: true,
     moraleBonus: 10, // 士气加成
@@ -311,16 +312,28 @@ export const UNIT_TYPES = {
     femaleOnly: true,
     moraleBonus: 15,
   },
+  femaleArcherCav: {
+    id: 'femaleArcherCav', name: '女弓骑兵', icon: '🏹‍♀️', color: 0xE91E63,
+    desc: '阿玛宗/西梁骑射精锐，百步穿杨，克制步兵与骆驼',
+    atk: 11, def: 5, spd: 10, range: 3,
+    cost: { gold: 30, food: 7, horse: 1 },
+    counters: ['infantry', 'camel', 'femaleInfantry'],
+    counteredBy: ['cavalry', 'femaleCavalry'],
+    recruitFrom: 'tribe',
+    femaleOnly: true,
+    moraleBonus: 12,
+  },
 };
 
 // 克制关系表 (attacker → defender → damage multiplier)
 export const COUNTER_TABLE = {
-  infantry:   { infantry: 1.0, cavalry: 0.8, archerCav: 0.7, camel: 1.4, femaleInfantry: 0.7, femaleCavalry: 0.7 },
-  cavalry:    { infantry: 1.2, cavalry: 1.0, archerCav: 1.4, camel: 0.6, femaleInfantry: 0.8, femaleCavalry: 0.7 },
-  archerCav:  { infantry: 1.4, cavalry: 0.6, archerCav: 1.0, camel: 0.8, femaleInfantry: 1.2, femaleCavalry: 0.8 },
-  camel:      { infantry: 0.7, cavalry: 1.5, archerCav: 1.0, camel: 1.0, femaleInfantry: 0.6, femaleCavalry: 1.3 },
-  femaleInfantry: { infantry: 1.3, cavalry: 0.8, archerCav: 0.7, camel: 1.4, femaleInfantry: 1.0, femaleCavalry: 1.0 },
-  femaleCavalry:  { infantry: 1.2, cavalry: 1.3, archerCav: 1.3, camel: 0.7, femaleInfantry: 1.0, femaleCavalry: 1.0 },
+  infantry:        { infantry: 1.0, cavalry: 0.8, archerCav: 0.7, camel: 1.4, femaleInfantry: 0.7, femaleCavalry: 0.7, femaleArcherCav: 0.6 },
+  cavalry:         { infantry: 1.2, cavalry: 1.0, archerCav: 1.4, camel: 0.6, femaleInfantry: 0.8, femaleCavalry: 0.7, femaleArcherCav: 1.3 },
+  archerCav:       { infantry: 1.4, cavalry: 0.6, archerCav: 1.0, camel: 0.8, femaleInfantry: 1.2, femaleCavalry: 0.8, femaleArcherCav: 0.9 },
+  camel:           { infantry: 0.7, cavalry: 1.5, archerCav: 1.0, camel: 1.0, femaleInfantry: 0.6, femaleCavalry: 1.3, femaleArcherCav: 1.2 },
+  femaleInfantry:  { infantry: 1.3, cavalry: 0.8, archerCav: 0.7, camel: 1.4, femaleInfantry: 1.0, femaleCavalry: 1.0, femaleArcherCav: 0.8 },
+  femaleCavalry:   { infantry: 1.2, cavalry: 1.3, archerCav: 1.3, camel: 0.7, femaleInfantry: 1.0, femaleCavalry: 1.0, femaleArcherCav: 1.1 },
+  femaleArcherCav: { infantry: 1.4, cavalry: 0.7, archerCav: 1.2, camel: 1.3, femaleInfantry: 1.3, femaleCavalry: 0.8, femaleArcherCav: 1.0 },
 };
 
 // ===== MERCENARY SYSTEM (雇佣兵) =====
@@ -434,9 +447,9 @@ export const CITIZEN_TYPES = {
   },
   femaleCitizen: {
     id: 'femaleCitizen', name: '女公民', icon: '👩', gender: 'female',
-    desc: '女性公民，可征兵(女兵种)、经商',
-    canRecruit: ['femaleInfantry', 'femaleCavalry'],  // 可征召的女兵种
-    canWork: ['soldier', 'merchant'],                  // 可从事的职业
+    desc: '女性公民，可征兵(女兵种)、经商、工匠',
+    canRecruit: ['femaleInfantry', 'femaleCavalry', 'femaleArcherCav'],  // 可征召的女兵种（含女弓骑兵）
+    canWork: ['soldier', 'merchant', 'craftsman', 'builder'],            // 女性可从事所有职业
     breedingRate: 0.08,
   },
   femaleMerchant: {
@@ -652,6 +665,60 @@ export const SLAVE_TRIBUTE = {
     return { relationGain, goldGain, isBest, desc: entry.desc };
   },
 };
+
+// ===== ALL-FEMALE NATION RULES (全女性国家规则) =====
+// 西梁女国和阿玛宗：市民全为女性，女性覆盖所有业务能力
+// 不允许培养男奴，但女奴隶培训成本低于其他城邦
+export const ALL_FEMALE_NATIONS = {
+  amazons: {
+    id: 'amazons', name: '阿玛宗女战士部落',
+    desc: '全女性国家，所有市民均为女性',
+    rules: {
+      noMaleSlaveTraining: true,    // 禁止培养男奴
+      femaleSlaveCostDiscount: 0.6, // 女奴隶培训成本6折
+      femaleOnlyArmy: true,         // 只能征召女兵
+      femaleBusinessBonus: 1.2,     // 女性经商加成20%
+      femaleCraftBonus: 1.15,       // 女性工匠加成15%
+    },
+    // 可征召兵种（全女兵）
+    availableUnits: ['femaleInfantry', 'femaleCavalry', 'femaleArcherCav'],
+    // 可从事职业（女性覆盖全部）
+    availableJobs: ['soldier', 'merchant', 'craftsman', 'builder', 'breeding'],
+    // 女性专属角色名称
+    femaleRoles: {
+      merchant: '女商人', artisan: '女匠人', soldier: '女战士',
+      cavalry: '女骑兵', archerCav: '女弓骑兵', infantry: '女步兵',
+    },
+  },
+  xiliang: {
+    id: 'xiliang', name: '西梁女国',
+    desc: '全女性国家（西游记西梁女国），所有市民均为女性',
+    rules: {
+      noMaleSlaveTraining: true,    // 禁止培养男奴
+      femaleSlaveCostDiscount: 0.5, // 女奴隶培训成本5折（更低）
+      femaleOnlyArmy: true,         // 只能征召女兵
+      femaleBusinessBonus: 1.3,     // 女性经商加成30%（丝绸之利）
+      femaleCraftBonus: 1.25,       // 女性工匠加成25%（织锦之利）
+    },
+    availableUnits: ['femaleInfantry', 'femaleCavalry', 'femaleArcherCav'],
+    availableJobs: ['soldier', 'merchant', 'craftsman', 'builder', 'breeding'],
+    femaleRoles: {
+      merchant: '女商人', artisan: '女匠人', soldier: '女战士',
+      cavalry: '女骑兵', archerCav: '女弓骑兵', infantry: '女步兵',
+    },
+  },
+};
+
+// 检查是否为全女性国家
+export function isAllFemaleNation(nationId) {
+  return ALL_FEMALE_NATIONS[nationId] !== undefined;
+}
+
+// 获取全女性国家的培训成本折扣
+export function getFemaleTrainingDiscount(nationId) {
+  const nation = ALL_FEMALE_NATIONS[nationId];
+  return nation ? nation.rules.femaleSlaveCostDiscount : 1.0;
+}
 
 // ===== RECRUITMENT (from tribes only - 部落征召) =====
 export const RECRUIT_RULES = {

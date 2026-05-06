@@ -3,7 +3,7 @@
  * Citizen-Slave-General system
  * 奴隶→公民转换，武将系统，职业分工
  */
-import { GENERAL_SYSTEM, CITIZEN_TYPES, CITIZEN_JOBS } from '../data/worldData.js';
+import { GENERAL_SYSTEM, CITIZEN_TYPES, CITIZEN_JOBS, ALL_FEMALE_NATIONS, isAllFemaleNation, getFemaleTrainingDiscount } from '../data/worldData.js';
 
 export const state = {
   turn: 1, phase: 'menu', characters: {}, stats: null,
@@ -24,10 +24,10 @@ export const state = {
     cotton: 0, dye: 0, wine: 0, salt: 0, herb: 0,
     gem: 0, fur: 0, steel: 0, coal: 0, ore: 0, camel: 0,
   },
-  // 6 unit types army
+  // 7 unit types army (含女弓骑兵)
   army: {
     infantry: 10, cavalry: 0, archerCav: 0, camel: 0,
-    femaleInfantry: 0, femaleCavalry: 0,
+    femaleInfantry: 0, femaleCavalry: 0, femaleArcherCav: 0,
     morale: 70,
   },
   // ===== SLAVE SYSTEM (奴隶系统 - 6 types) =====
@@ -91,7 +91,7 @@ export const state = {
 
   get totalArmy() {
     const a = this.army;
-    return a.infantry + a.cavalry + a.archerCav + a.camel + a.femaleInfantry + a.femaleCavalry;
+    return a.infantry + a.cavalry + a.archerCav + a.camel + a.femaleInfantry + a.femaleCavalry + a.femaleArcherCav;
   },
 
   get totalSlaves() { return this.slaves.total; },
@@ -287,7 +287,8 @@ export const state = {
   // ===== CITIZEN RECRUITMENT (公民征兵 - 需要公民) =====
   // 征兵只能由公民承担，消耗公民
   recruitFromCitizens(unitType, count) {
-    const citizenType = (unitType === 'femaleInfantry' || unitType === 'femaleCavalry') ? 'femaleCitizen' : 'maleCitizen';
+    const femaleUnits = ['femaleInfantry', 'femaleCavalry', 'femaleArcherCav'];
+    const citizenType = femaleUnits.includes(unitType) ? 'femaleCitizen' : 'maleCitizen';
     const available = this.citizens.inventory[citizenType] || 0;
     const canRecruit = Math.min(count, available);
     if (canRecruit <= 0) return { success: false, msg: `没有足够的${citizenType === 'femaleCitizen' ? '女' : '男'}公民可征召！` };
