@@ -1,15 +1,32 @@
 /**
- * Game State v4 - 全局游戏状态
- * Citizen-Slave-General system
- * 奴隶→公民转换，武将系统，职业分工
+ * Game State v6 - 全局游戏状态
+ * Progression: nation select → capital quest → tribe quests → city dev → expansion
+ * City development requires resources, affects population/tech/agriculture/commerce
+ * War requires completing 50%+ enemy tribe quests first
  */
-import { GENERAL_SYSTEM, CITIZEN_TYPES, CITIZEN_JOBS, ALL_FEMALE_NATIONS, isAllFemaleNation, getFemaleTrainingDiscount } from '../data/worldData.js';
+import { GENERAL_SYSTEM, CITIZEN_TYPES, CITIZEN_JOBS, ALL_FEMALE_NATIONS,
+  isAllFemaleNation, getFemaleTrainingDiscount,
+  getNationType, getMaxLevel, getLevelData, getDifficulty,
+  CITY_LEVELS, TRIBE_LEVELS, LEVEL_UPGRADE_COST, WAR_DAMAGE,
+  checkEvents } from '../data/worldData.js';
+import { getCurrentPhase, canPerformAction, hasAbility,
+  CITY_DEVELOPMENT, RECRUITMENT_COSTS, ABILITIES } from '../data/questSystem.js';
 
 export const state = {
-  turn: 1, phase: 'menu', characters: {}, stats: null,
+  turn: 1, phase: 'menu', gamePhase: 'nation_select',
+  characters: {}, stats: null, nationsData: null,
+  battleCount: 0,
+  // City development tracking
+  cityProjects: {},  // { project_id: true } - completed projects
+  cityStats: {
+    food_production: 0, gold_production: 0,
+    tech_production: 0, weapon_production: 0,
+    recruit_capacity: 0, cavalry_capacity: 0, camel_capacity: 0,
+    max_population: 500, trade_bonus: 0, troop_quality: 0,
+  },
   player: {
     name: '旅行者', title: '无名旅人', gold: 200, level: 1, exp: 0,
-    location: { x: 48, y: 48 }, currentNation: 'loulan',
+    location: { x: 48, y: 48 }, currentNation: null,
     stats: { military: 10, economy: 10, diplomacy: 10, culture: 10, charisma: 15 }
   },
   tribe: {
@@ -78,6 +95,12 @@ export const state = {
 
   // Hired characters
   hiredGenerals: [], hiredOfficials: [], hiredMerchants: [], hiredSpies: [],
+  // ===== NATION LEVEL SYSTEM (城邦/部落等级) =====
+  nationLevel: 1,           // 当前国家等级 (城邦1-5, 部落1-3)
+  nationType: 'city',       // 'city' or 'tribe'
+  difficulty: null,         // 当前难度 { level, bonus, desc }
+  unlockedAbilities: [],    // 已解锁能力
+
   // Tribe relations
   tribeRelations: {},
   controlledCities: new Set(),
@@ -92,6 +115,17 @@ export const state = {
   get totalArmy() {
     const a = this.army;
     return a.infantry + a.cavalry + a.archerCav + a.camel + a.femaleInfantry + a.femaleCavalry + a.femaleArcherCav;
+  },
+
+  // 当前等级数据
+  get levelData() {
+    return getLevelData(this.player.currentNation || 'loulan', this.nationLevel);
+  },
+
+  // 每回合基础产出（受等级影响）
+  get levelProduction() {
+    const ld = this.levelData;
+    return ld ? ld.production : { gold: 10, food: 15, resource: 5, recruit: 5 };
   },
 
   get totalSlaves() { return this.slaves.total; },
@@ -159,13 +193,118 @@ export const state = {
   addGold(n) { this.player.gold += n; },
   addExp(n) { this.player.exp += n; },
 
+  // ===== SELECT NATION (选择国家) =====
+  // Pass NATIONS object from scene to avoid require() in ES module
+  selectNation(nationId, nationsData) {
+    this.player.currentNation = nationId;
+    this.nationType = getNationType(nationId);
+    this.nationLevel = 1;
+    this.difficulty = getDifficulty(nationId);
+
+    // Set starting position to nation capital
+    if (nationsData && nationsData[nationId]) {
+      const nation = nationsData[nationId];
+      if (nation.capital) {
+        this.player.location = { ...nation.capital };
+      }
+    }
+
+    // Apply difficulty bonus
+    if (this.difficulty.bonus) {
+      this.player.gold += this.difficulty.bonus.gold || 0;
+      this.resources.food += this.difficulty.bonus.food || 0;
+      this.army.infantry += this.difficulty.bonus.startingTroops || 0;
+    }
+
+    return this.difficulty;
+  },
+
+  // ===== UPGRADE NATION LEVEL (升级城邦/部落) =====
+  upgradeNationLevel() {
+    const maxLvl = getMaxLevel(this.player.currentNation);
+    if (this.nationLevel >= maxLvl) return { success: false, msg: '已达最高等级！' };
+
+    const nextLevel = this.nationLevel + 1;
+    const type = this.nationType;
+    const costs = LEVEL_UPGRADE_COST[type]?.[nextLevel];
+    if (!costs) return { success: false, msg: '无法升级！' };
+
+    // Check resources
+    for (const [res, amt] of Object.entries(costs)) {
+      if (res === 'gold') {
+        if (this.player.gold < amt) return { success: false, msg: `金币不足（需要${amt}）` };
+      } else if (this.resources[res] !== undefined) {
+        if (this.resources[res] < amt) return { success: false, msg: `${res}不足（需要${amt}）` };
+      }
+    }
+
+    // Deduct costs
+    for (const [res, amt] of Object.entries(costs)) {
+      if (res === 'gold') this.player.gold -= amt;
+      else if (this.resources[res] !== undefined) this.resources[res] -= amt;
+    }
+
+    this.nationLevel = nextLevel;
+    const ld = this.levelData;
+    return { success: true, level: nextLevel, data: ld, msg: `升级至${ld.name}！` };
+  },
+
+  // ===== WAR DAMAGE (战争降级) =====
+  applyWarDamage(severity) {
+    const damage = WAR_DAMAGE[severity];
+    if (!damage) return null;
+
+    const result = { severity, downgraded: false, resourceLoss: 0 };
+
+    // Resource loss
+    const lossRate = damage.resourceLoss;
+    result.resourceLoss = Math.floor(this.player.gold * lossRate);
+    this.player.gold = Math.floor(this.player.gold * (1 - lossRate));
+    this.resources.food = Math.floor(this.resources.food * (1 - lossRate));
+
+    // Level downgrade check
+    if (Math.random() < damage.downgradeChance && this.nationLevel > 1) {
+      const loss = Math.min(damage.levelLoss, this.nationLevel - 1);
+      this.nationLevel -= loss;
+      result.downgraded = true;
+      result.newLevel = this.nationLevel;
+    }
+
+    this.battleCount = (this.battleCount || 0) + 1;
+    return result;
+  },
+
+  // ===== CHECK & TRIGGER EVENTS (检查触发事件) =====
+  checkAndTriggerEvents() {
+    const events = checkEvents(this);
+    const results = [];
+    events.forEach(event => {
+      // Apply rewards
+      if (event.reward.gold) this.player.gold += event.reward.gold;
+      if (event.reward.food) this.resources.food += event.reward.food;
+      if (event.reward.moraleBonus) this.army.morale = Math.min(100, this.army.morale + event.reward.moraleBonus);
+      if (event.reward.exp) this.player.exp += event.reward.exp;
+      if (event.reward.unlock && !this.unlockedAbilities.includes(event.reward.unlock)) {
+        this.unlockedAbilities.push(event.reward.unlock);
+      }
+      this.completedQuests.push(event.id);
+      results.push(event);
+    });
+    return results;
+  },
+
   // ===== NEXT TURN =====
   nextTurn() {
     this.turn++;
     const balance = this.developmentBalance;
     const penaltyMult = 1 - balance.penalty;
 
-    // Base production
+    // Level-based production (城邦/部落等级产出)
+    const lp = this.levelProduction;
+    this.player.gold += Math.floor(lp.gold * penaltyMult);
+    this.resources.food += Math.floor(lp.food * penaltyMult);
+
+    // Additional production from buildings
     this.resources.food += Math.floor(this.tribe.agriculture.output * penaltyMult);
     this.player.gold += Math.floor(this.tribe.commerce.income * penaltyMult);
     this.tradeRoutes.forEach(t => this.player.gold += Math.floor(t.income * penaltyMult));
@@ -252,7 +391,13 @@ export const state = {
       }
     });
 
-    return { text: `第${this.turn}回合开始 | 发展指数:${balance.score}`, balance };
+    // Check for triggered events
+    const triggeredEvents = this.checkAndTriggerEvents();
+    const eventText = triggeredEvents.length > 0
+      ? ` | 触发${triggeredEvents.length}个事件！`
+      : '';
+
+    return { text: `第${this.turn}回合开始 | 发展指数:${balance.score} | 等级:${this.nationLevel}${eventText}`, balance, triggeredEvents };
   },
 
   _getNextGeneralName(gender) {
@@ -477,4 +622,170 @@ export const state = {
 
   establishTribe(oasisId) { this.tribe.name = '绿洲部落'; },
   startQuest(qId) { if (!this.activeQuests.includes(qId)) this.activeQuests.push(qId); },
+
+  // ===== PROGRESSION SYSTEM METHODS =====
+
+  // Complete a quest and apply rewards
+  completeQuest(quest) {
+    if (this.completedQuests.includes(quest.id)) return false;
+    this.completedQuests.push(quest.id);
+    // Remove from active
+    this.activeQuests = this.activeQuests.filter(q => q !== quest.id);
+
+    const r = quest.rewards || {};
+    // Apply gold reward
+    if (r.gold) this.player.gold += r.gold;
+    if (r.food) this.resources.food += r.food;
+    // Apply relation
+    if (r.relation) { /* tracked via tribeRelations */ }
+    // Apply resources
+    if (r.resources) {
+      Object.entries(r.resources).forEach(([k, v]) => {
+        if (this.resources[k] !== undefined) this.resources[k] += v;
+      });
+    }
+    // Unlock abilities
+    if (r.unlockAbility && !this.unlockedAbilities.includes(r.unlockAbility)) {
+      this.unlockedAbilities.push(r.unlockAbility);
+    }
+    if (r.unlockAbility2 && !this.unlockedAbilities.includes(r.unlockAbility2)) {
+      this.unlockedAbilities.push(r.unlockAbility2);
+    }
+    // Grant citizens
+    if (r.citizens) {
+      Object.entries(r.citizens).forEach(([k, v]) => {
+        if (this.citizens.inventory[k] !== undefined) {
+          this.citizens.inventory[k] += v;
+          this.citizens.total += v;
+        }
+      });
+    }
+    // Grant slaves
+    if (r.slaves) {
+      Object.entries(r.slaves).forEach(([k, v]) => {
+        if (this.slaves.inventory[k] !== undefined) {
+          this.slaves.inventory[k] += v;
+          this.slaves.total += v;
+        }
+      });
+    }
+    // Control tribe
+    if (r.controlTribe && quest.tribeId) {
+      this.controlledTribes.add(quest.tribeId);
+      this.controlledSince[quest.tribeId] = this.turn;
+    }
+    // Update game phase
+    this.gamePhase = getCurrentPhase(this);
+    return true;
+  },
+
+  // Check if quest objectives are met
+  checkQuestCompletion(quest) {
+    const objectives = quest.objectives || [];
+    for (const obj of objectives) {
+      if (obj.type === 'pay_gold' && this.player.gold < obj.amount) return false;
+      if (obj.type === 'pay_food' && this.resources.food < obj.amount) return false;
+      if (obj.type === 'pay_resource' && (this.resources[obj.resource] || 0) < obj.amount) return false;
+      if (obj.type === 'military_strength' && this.totalArmy < obj.minTroops) return false;
+    }
+    return true;
+  },
+
+  // Pay quest costs and complete
+  payAndCompleteQuest(quest) {
+    if (!this.checkQuestCompletion(quest)) return { success: false, msg: '条件不满足！' };
+    const objectives = quest.objectives || [];
+    for (const obj of objectives) {
+      if (obj.type === 'pay_gold') this.player.gold -= obj.amount;
+      if (obj.type === 'pay_food') this.resources.food -= obj.amount;
+      if (obj.type === 'pay_resource') this.resources[obj.resource] -= obj.amount;
+    }
+    this.completeQuest(quest);
+    return { success: true, msg: `完成任务：${quest.name}` };
+  },
+
+  // ===== CITY DEVELOPMENT =====
+  // Build a city project
+  buildProject(projectId) {
+    const project = CITY_DEVELOPMENT.projects[projectId];
+    if (!project) return { success: false, msg: '项目不存在！' };
+    if (this.cityProjects[projectId]) return { success: false, msg: '已建造！' };
+    if (project.requireAbility && !hasAbility(this, project.requireAbility)) {
+      return { success: false, msg: `需要解锁「${ABILITIES[project.requireAbility]?.name}」能力` };
+    }
+    if (project.requireCityLevel > this.nationLevel) {
+      return { success: false, msg: `需要城市等级${project.requireCityLevel}` };
+    }
+    // Check cost
+    const cost = project.cost;
+    if (cost.gold && this.player.gold < cost.gold) return { success: false, msg: '金币不足' };
+    if (cost.wood && this.resources.wood < cost.wood) return { success: false, msg: '木材不足' };
+    if (cost.stone && this.resources.stone < cost.stone) return { success: false, msg: '石材不足' };
+    if (cost.iron && this.resources.iron < cost.iron) return { success: false, msg: '铁矿不足' };
+    if (cost.silk && this.resources.silk < cost.silk) return { success: false, msg: '丝绸不足' };
+    if (cost.labor && this.unassignedSlaves < cost.labor) return { success: false, msg: '劳动力不足（需要空闲奴隶）' };
+
+    // Deduct cost
+    if (cost.gold) this.player.gold -= cost.gold;
+    if (cost.wood) this.resources.wood -= cost.wood;
+    if (cost.stone) this.resources.stone -= cost.stone;
+    if (cost.iron) this.resources.iron -= cost.iron;
+    if (cost.silk) this.resources.silk -= cost.silk;
+    if (cost.labor) this.assignSlave('labor_wood', cost.labor); // use slaves as labor
+
+    // Apply effect
+    this.cityProjects[projectId] = true;
+    const effect = project.effect;
+    Object.entries(effect).forEach(([k, v]) => {
+      if (this.cityStats[k] !== undefined) this.cityStats[k] += v;
+    });
+
+    return { success: true, msg: `建造完成：${project.name}`, effect };
+  },
+
+  // ===== RECRUIT WITH COSTS (征兵消耗资源) =====
+  recruitUnit(unitType, count) {
+    const costDef = RECRUITMENT_COSTS[unitType];
+    if (!costDef) return { success: false, msg: '未知兵种' };
+    if (!hasAbility(this, costDef.requireAbility)) {
+      return { success: false, msg: `需要解锁「${ABILITIES[costDef.requireAbility]?.name}」能力` };
+    }
+    if (costDef.requireProject && !this.cityProjects[costDef.requireProject]) {
+      return { success: false, msg: '需要先建造对应军事设施' };
+    }
+    const cost = costDef.cost;
+    const citizenType = cost.maleCitizen ? 'maleCitizen' : 'femaleCitizen';
+    const available = this.citizens.inventory[citizenType] || 0;
+    const canRecruit = Math.min(count, available);
+    if (canRecruit <= 0) return { success: false, msg: `没有足够的${citizenType === 'femaleCitizen' ? '女' : '男'}公民` };
+
+    // Check resources
+    const totalGold = (cost.gold || 0) * canRecruit;
+    const totalFood = (cost.food || 0) * canRecruit;
+    const totalHorse = (cost.horse || 0) * canRecruit;
+    const totalIron = (cost.iron || 0) * canRecruit;
+    const totalCamel = (cost.camel || 0) * canRecruit;
+    if (this.player.gold < totalGold) return { success: false, msg: '金币不足' };
+    if (this.resources.food < totalFood) return { success: false, msg: '粮食不足' };
+    if (this.resources.horse < totalHorse) return { success: false, msg: '马匹不足' };
+    if (this.resources.iron < totalIron) return { success: false, msg: '铁矿不足' };
+    if (this.resources.camel < totalCamel) return { success: false, msg: '骆驼不足' };
+
+    // Deduct
+    this.citizens.inventory[citizenType] -= canRecruit;
+    this.citizens.total -= canRecruit;
+    this.player.gold -= totalGold;
+    this.resources.food -= totalFood;
+    this.resources.horse -= totalHorse;
+    this.resources.iron -= totalIron;
+    this.resources.camel -= totalCamel;
+    this.army[unitType] += canRecruit;
+
+    return { success: true, count: canRecruit, unitType, msg: `征召${canRecruit}名${costDef.name}` };
+  },
+
+  // ===== CHECK ACTION PERMISSION =====
+  canDo(action) {
+    return canPerformAction(this, action);
+  },
 };

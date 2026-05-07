@@ -1,11 +1,13 @@
 /**
- * 西域群英传 v5.0 - Silk Road Chronicles (PixiJS WebGL)
- * Beautiful isometric strategy game with 3000+ characters
+ * 西域群英传 v6.0 - Silk Road Chronicles (PixiJS WebGL)
+ * City/Tribe level system, nation selection, event triggers
+ * Strategy wargame with 3000+ characters
  */
 import { PixiApp } from './engine/PixiApp.js';
 import { generateAllCharacters, getCharacterStats } from './data/characters.js';
 import { state } from './core/gameState.js';
 import { showMenu } from './scenes/menuScene.js';
+import { showNationSelect } from './scenes/nationSelectScene.js';
 import { showOasisSelect } from './scenes/oasisScene.js';
 import { showMap, handleMapClick } from './scenes/mapScene.js';
 import { showTribe } from './scenes/tribeScene.js';
@@ -127,9 +129,10 @@ class SilkRoadGame {
   // Scene delegates
   _showMenu() { showMenu(this); }
   _menuAction(i) {
-    if (i === 0) this._showOasisSelect();
+    if (i === 0) this._showNationSelect();
     else if (i === 1) this._showMap();
   }
+  _showNationSelect() { showNationSelect(this); }
   _showOasisSelect() { showOasisSelect(this); }
   _showMap() { showMap(this); }
   _showTribe() { showTribe(this); }
@@ -139,7 +142,7 @@ class SilkRoadGame {
 }
 
 // Bootstrap
-console.log('[Bootstrap] Starting Silk Road Chronicles v5.0...');
+console.log('[Bootstrap] Starting Silk Road Chronicles v6.0...');
 const game = new SilkRoadGame();
 game.init().then(() => {
   console.log('[Bootstrap] Game initialized successfully!');

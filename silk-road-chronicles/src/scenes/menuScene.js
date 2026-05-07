@@ -1,5 +1,5 @@
 /**
- * Menu Scene - 主菜单
+ * Menu Scene - 主菜单 v2
  */
 import { state } from '../core/gameState.js';
 
@@ -16,6 +16,12 @@ export function showMenu(game) {
   game.ui.createText(game.w / 2, game.h / 2 - 120,
     'SILK ROAD CHRONICLES', { fontSize: 22, fill: 0x9B8B70, anchor: [0.5, 0.5] });
 
+  // Subtitle with game features
+  game.ui.createText(game.w / 2, game.h / 2 - 90,
+    '城邦发展 · 策略战棋 · 统一西域', {
+      fontSize: 14, fill: 0x8B7B60, anchor: [0.5, 0.5]
+    });
+
   const items = ['开始新游戏', '继续游戏', 'CG 回忆', '退出'];
   items.forEach((text, i) => {
     game.ui.createButton(game.w / 2 - 130, game.h / 2 - 30 + i * 60, 260, 48, text,
@@ -23,11 +29,11 @@ export function showMenu(game) {
   });
 
   game.ui.createText(game.w / 2, game.h - 40,
-    `v5.0 PixiJS - ${state.stats?.total || 3000}+角色 · ${state.stats?.female || 2000}+女性`,
+    `v6.0 PixiJS - ${state.stats?.total || 3000}+角色 · ${state.stats?.female || 2000}+女性 · 城邦等级系统`,
     { fontSize: 13, fill: 0x9B8B70, anchor: [0.5, 0.5] });
 }
 
 export function menuAction(game, i) {
-  if (i === 0) game._showOasisSelect();
+  if (i === 0) game._showNationSelect();  // Go to nation selection first
   else if (i === 1) game._showMap();
 }

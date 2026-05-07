@@ -144,6 +144,32 @@ export const TRIBES_FULL = [
   // 焉耆南 (3 tribes)
   { id:'t_107', name:'湖畔部落', x:47, y:28, nation:'yanqi', pop:600, res:{fish:20,food:15}, troops:25, type:'settled' },
   { id:'t_108', name:'水田部落', x:45, y:32, nation:'yanqi', pop:500, res:{food:25,reed:10}, troops:20, type:'settled' },
+  // 东女国 (5 tribes - all female)
+  { id:'t_109', name:'织锦女族', x:68, y:52, nation:'dongnv', pop:700, res:{silk:25,herb:15}, troops:35, type:'settled', female:true },
+  { id:'t_110', name:'药草女族', x:72, y:58, nation:'dongnv', pop:600, res:{herb:30,silk:10}, troops:25, type:'settled', female:true },
+  { id:'t_111', name:'女王卫族', x:70, y:55, nation:'dongnv', pop:800, res:{iron:15,silk:20}, troops:60, type:'settled', female:true },
+  { id:'t_112', name:'高原女族', x:66, y:56, nation:'dongnv', pop:500, res:{herb:20,food:15}, troops:20, type:'nomadic', female:true },
+  { id:'t_113', name:'织女族',   x:74, y:54, nation:'dongnv', pop:650, res:{silk:30,dye:15}, troops:30, type:'settled', female:true },
+  // 温宿 (3 tribes)
+  { id:'t_114', name:'铁山部落', x:33, y:22, nation:'wensu', pop:600, res:{iron:25,ore:15}, troops:50, type:'settled' },
+  { id:'t_115', name:'马场部落', x:37, y:24, nation:'wensu', pop:500, res:{horse:20,iron:10}, troops:40, type:'nomadic' },
+  { id:'t_116', name:'矿谷部落', x:31, y:26, nation:'wensu', pop:400, res:{iron:20,stone:10}, troops:30, type:'settled' },
+  // 尉犁 (3 tribes)
+  { id:'t_117', name:'渔港部落', x:48, y:38, nation:'weili', pop:500, res:{fish:25,food:15}, troops:20, type:'settled' },
+  { id:'t_118', name:'灌溉部落', x:52, y:42, nation:'weili', pop:450, res:{food:20,water:20}, troops:15, type:'settled' },
+  { id:'t_119', name:'河畔部落', x:46, y:42, nation:'weili', pop:400, res:{fish:15,food:20}, troops:15, type:'settled' },
+  // 于阗西 (3 tribes)
+  { id:'t_120', name:'玉雕部落', x:16, y:60, nation:'yutian', pop:500, res:{jade:30,gold:10}, troops:20, type:'settled' },
+  { id:'t_121', name:'河畔部落', x:20, y:64, nation:'yutian', pop:400, res:{food:15,horse:10}, troops:15, type:'settled' },
+  { id:'t_122', name:'矿工部落', x:14, y:64, nation:'yutian', pop:350, res:{jade:20,ore:10}, troops:10, type:'settled' },
+  // 疏勒西 (3 tribes)
+  { id:'t_123', name:'山口部落', x:6, y:36, nation:'shule', pop:500, res:{spice:15,silk:15}, troops:35, type:'settled' },
+  { id:'t_124', name:'驿站部落', x:10, y:40, nation:'shule', pop:400, res:{food:15,camel:10}, troops:25, type:'settled' },
+  { id:'t_125', name:'商队部落', x:4, y:40, nation:'shule', pop:450, res:{silk:20,spice:20}, troops:20, type:'nomadic' },
+  // 补充部落 (3 tribes to reach 128)
+  { id:'t_126', name:'沙漠游骑', x:62, y:42, nation:'shanshan', pop:350, res:{food:10,camel:10}, troops:30, type:'nomadic' },
+  { id:'t_127', name:'雪山部落', x:48, y:8, nation:'wusun', pop:400, res:{fur:25,iron:10}, troops:60, type:'nomadic' },
+  { id:'t_128', name:'绿洲隐族', x:38, y:48, nation:'bugur', pop:300, res:{food:15,herb:10}, troops:15, type:'settled' },
 ];
 
 // ===== GARRISONS =====
@@ -780,6 +806,503 @@ export const HIRING_RULES = {
     pool: 'spy',
   },
 };
+
+// ===== CITY/TRIBE LEVEL SYSTEM (城邦/部落等级系统) =====
+// 城邦(city-state)最高5级，部落(tribe)最高3级
+// 等级影响每周期产出的金钱、资源、粮食、兵源
+// 战争会根据惨烈程度降级
+export const CITY_LEVELS = {
+  1: { name: '村落', icon: '🏘️', maxLevel: 5, type: 'city',
+    production: { gold: 10, food: 15, resource: 5, recruit: 5 },
+    defense: 10, population: 2000, desc: '小型聚落，基础产出' },
+  2: { name: '镇集', icon: '🏘️', maxLevel: 5, type: 'city',
+    production: { gold: 25, food: 30, resource: 12, recruit: 12 },
+    defense: 20, population: 5000, desc: '发展中的集镇' },
+  3: { name: '城邦', icon: '🏰', maxLevel: 5, type: 'city',
+    production: { gold: 50, food: 55, resource: 25, recruit: 25 },
+    defense: 35, population: 10000, desc: '成熟的城邦国家' },
+  4: { name: '大都', icon: '🏯', maxLevel: 5, type: 'city',
+    production: { gold: 90, food: 90, resource: 45, recruit: 45 },
+    defense: 55, population: 18000, desc: '繁荣的大城市' },
+  5: { name: '王都', icon: '👑', maxLevel: 5, type: 'city',
+    production: { gold: 150, food: 140, resource: 70, recruit: 70 },
+    defense: 80, population: 30000, desc: '西域最强盛的王都' },
+};
+
+export const TRIBE_LEVELS = {
+  1: { name: '小部落', icon: '⛺', maxLevel: 3, type: 'tribe',
+    production: { gold: 3, food: 8, resource: 2, recruit: 3 },
+    defense: 5, population: 500, desc: '小型游牧部落' },
+  2: { name: '大部族', icon: '🏕️', maxLevel: 3, type: 'tribe',
+    production: { gold: 8, food: 20, resource: 6, recruit: 8 },
+    defense: 15, population: 1500, desc: '发展壮大的部族' },
+  3: { name: '部落联盟', icon: '🏴', maxLevel: 3, type: 'tribe',
+    production: { gold: 18, food: 40, resource: 15, recruit: 18 },
+    defense: 30, population: 4000, desc: '强大的部落联盟' },
+};
+
+// 升级所需资源
+export const LEVEL_UPGRADE_COST = {
+  city: {
+    2: { gold: 500, food: 300, wood: 100, stone: 80 },
+    3: { gold: 1500, food: 800, wood: 300, stone: 200, iron: 50 },
+    4: { gold: 4000, food: 2000, wood: 800, stone: 500, iron: 150, jade: 20 },
+    5: { gold: 10000, food: 5000, wood: 2000, stone: 1200, iron: 400, jade: 50, silk: 30 },
+  },
+  tribe: {
+    2: { gold: 200, food: 150, wood: 50 },
+    3: { gold: 800, food: 500, wood: 200, stone: 100 },
+  },
+};
+
+// 战争降级规则
+export const WAR_DAMAGE = {
+  // 战争惨烈程度 → 降级概率
+  light:   { downgradeChance: 0.1, levelLoss: 1, desc: '轻微损失', resourceLoss: 0.05 },
+  medium:  { downgradeChance: 0.3, levelLoss: 1, desc: '中等损失', resourceLoss: 0.15 },
+  heavy:   { downgradeChance: 0.6, levelLoss: 1, desc: '惨重损失', resourceLoss: 0.3 },
+  devastating: { downgradeChance: 0.9, levelLoss: 2, desc: '毁灭性打击', resourceLoss: 0.5 },
+};
+
+// 国家类型判定（城邦 vs 部落）
+export function getNationType(nationId) {
+  const tribeNations = ['wusun', 'kangju', 'tokuz', 'qarqan', 'wucha', 'chumi', 'chumukun', 'amazons'];
+  return tribeNations.includes(nationId) ? 'tribe' : 'city';
+}
+
+export function getMaxLevel(nationId) {
+  return getNationType(nationId) === 'tribe' ? 3 : 5;
+}
+
+export function getLevelData(nationId, level) {
+  const type = getNationType(nationId);
+  const table = type === 'tribe' ? TRIBE_LEVELS : CITY_LEVELS;
+  return table[level] || table[1];
+}
+
+// ===== DIFFICULTY SYSTEM (难度系统) =====
+// 根据所选国家决定游戏难度
+export const NATION_DIFFICULTY = {
+  // 简单 - 大国富国，初始资源丰富
+  easy: {
+    nations: ['kucha', 'khotan', 'kashgar', 'soche', 'xiliang', 'loulan', 'aksu'],
+    bonus: { gold: 500, food: 300, startingTroops: 50 },
+    desc: '大国富邦，资源丰富，适合新手',
+  },
+  // 普通 - 中等国家
+  medium: {
+    nations: ['loulan', 'shanshan', 'karashahr', 'yarkand', 'bugur', 'karakhoja',
+              'beshbaliq', 'dayuan', 'tashkurgan', 'gaochang', 'yanqi', 'niya'],
+    bonus: { gold: 300, food: 200, startingTroops: 30 },
+    desc: '中等国家，需要策略发展',
+  },
+  // 困难 - 小国或游牧
+  hard: {
+    nations: ['wusun', 'kangju', 'tokuz', 'amazons', 'qarqan', 'wucha',
+              'jumi', 'charklik', 'pishan', 'keriya', 'charchan', 'chumi',
+              'chumukun', 'kroran', 'jieshi', 'karghalik'],
+    bonus: { gold: 150, food: 100, startingTroops: 15 },
+    desc: '小国寡民或强敌环伺，极具挑战',
+  },
+};
+
+export function getDifficulty(nationId) {
+  for (const [diff, data] of Object.entries(NATION_DIFFICULTY)) {
+    if (data.nations.includes(nationId)) return { level: diff, ...data };
+  }
+  return { level: 'medium', ...NATION_DIFFICULTY.medium };
+}
+
+// ===== EVENT/QUEST SYSTEM (事件任务系统) =====
+// 随商业、战争等触发事件任务（解锁能力）
+export const GAME_EVENTS = {
+  // === 商业事件 ===
+  trade_boom: {
+    id: 'trade_boom', name: '商贸繁荣', type: 'commerce', icon: '💰',
+    trigger: { minGold: 1000, minTradeRoutes: 2 },
+    reward: { gold: 500, unlock: 'caravan_upgrade' },
+    desc: '你的商路日益繁荣，商人们带来了丰厚的利润！解锁：高级商队',
+  },
+  silk_road_monopoly: {
+    id: 'silk_road_monopoly', name: '丝路垄断', type: 'commerce', icon: '🧵',
+    trigger: { minGold: 5000, minTradeRoutes: 5, controlledCities: 3 },
+    reward: { gold: 2000, unlock: 'trade_embargo', relationBonus: 10 },
+    desc: '你控制了丝绸之路的关键节点！解锁：贸易禁运能力',
+  },
+  slave_market_expansion: {
+    id: 'slave_market_expansion', name: '奴隶市场扩张', type: 'commerce', icon: '⛓️',
+    trigger: { minSlaves: 50 },
+    reward: { unlock: 'slave_market_2', gold: 300 },
+    desc: '奴隶贸易规模扩大！解锁：高级奴隶市场',
+  },
+  // === 军事事件 ===
+  first_conquest: {
+    id: 'first_conquest', name: '初战告捷', type: 'military', icon: '⚔️',
+    trigger: { minBattles: 1 },
+    reward: { unlock: 'military_doctrine', exp: 100 },
+    desc: '你的第一场胜利！解锁：军事学说选择',
+  },
+  warrior_queen: {
+    id: 'warrior_queen', name: '女武神崛起', type: 'military', icon: '👸⚔️',
+    trigger: { minFemaleGenerals: 2, minBattles: 5 },
+    reward: { unlock: 'female_elite_units', moraleBonus: 10 },
+    desc: '女武将们展现了非凡的统帅才能！解锁：精锐女兵种',
+  },
+  desert_dominion: {
+    id: 'desert_dominion', name: '沙漠霸主', type: 'military', icon: '🏜️',
+    trigger: { controlledCities: 5, minArmy: 500 },
+    reward: { unlock: 'desert_fortress', gold: 1000 },
+    desc: '你征服了沙漠中的五座城邦！解锁：沙漠要塞建造',
+  },
+  unification_war: {
+    id: 'unification_war', name: '统一战争', type: 'military', icon: '👑',
+    trigger: { controlledCities: 15 },
+    reward: { unlock: 'emperor_title', allStatsBonus: 10 },
+    desc: '你已控制半数西域城邦！解锁：称王称号',
+  },
+  // === 外交事件 ===
+  alliance_network: {
+    id: 'alliance_network', name: '联盟网络', type: 'diplomacy', icon: '🤝',
+    trigger: { minAlliances: 3 },
+    reward: { unlock: 'trade_league', relationBonus: 15 },
+    desc: '你的外交网络初具规模！解锁：贸易联盟',
+  },
+  marriage_alliance: {
+    id: 'marriage_alliance', name: '联姻结盟', type: 'diplomacy', icon: '💒',
+    trigger: { minAlliances: 1, minFemaleCitizens: 10 },
+    reward: { unlock: 'royal_marriage', relationBonus: 25 },
+    desc: '通过联姻巩固了盟约！解锁：王室联姻',
+  },
+  // === 发展事件 ===
+  city_growth: {
+    id: 'city_growth', name: '城邦兴盛', type: 'development', icon: '🏙️',
+    trigger: { minCityLevel: 3 },
+    reward: { unlock: 'advanced_building', gold: 500 },
+    desc: '城邦发展到了新的高度！解锁：高级建筑',
+  },
+  population_boom: {
+    id: 'population_boom', name: '人口爆炸', type: 'development', icon: '👶',
+    trigger: { minPopulation: 5000 },
+    reward: { unlock: 'mass_recruitment', food: 200 },
+    desc: '人口大幅增长！解锁：大规模征兵',
+  },
+  tech_breakthrough: {
+    id: 'tech_breakthrough', name: '科技突破', type: 'development', icon: '🔬',
+    trigger: { minTechLevel: 5 },
+    reward: { unlock: 'advanced_weapons', resourceBonus: 0.1 },
+    desc: '科技研发取得重大突破！解锁：高级武器',
+  },
+  // === 特殊事件（全女性国家）===
+  amazon_tradition: {
+    id: 'amazon_tradition', name: '阿玛宗传统', type: 'special', icon: '⚔️♀️',
+    trigger: { nation: 'amazons', minTurn: 10 },
+    reward: { unlock: 'amazon_elite', moraleBonus: 20 },
+    desc: '阿玛宗战士传统发扬光大！解锁：阿玛宗精锐卫队',
+  },
+  xiliang_prosperity: {
+    id: 'xiliang_prosperity', name: '西梁盛世', type: 'special', icon: '🌸',
+    trigger: { nation: 'xiliang', minCityLevel: 3 },
+    reward: { unlock: 'silk_mastery', gold: 1000 },
+    desc: '西梁女国进入盛世！解锁：丝绸大师级工艺',
+  },
+};
+
+// 检查事件是否可触发
+export function checkEvents(state) {
+  const triggered = [];
+  for (const [id, event] of Object.entries(GAME_EVENTS)) {
+    if (state.completedQuests.includes(id)) continue;
+    const t = event.trigger;
+    let canTrigger = true;
+    if (t.minGold && state.player.gold < t.minGold) canTrigger = false;
+    if (t.minTradeRoutes && state.tradeRoutes.length < t.minTradeRoutes) canTrigger = false;
+    if (t.controlledCities && state.controlledCities.size < t.controlledCities) canTrigger = false;
+    if (t.minSlaves && state.slaves.total < t.minSlaves) canTrigger = false;
+    if (t.minBattles && (state.battleCount || 0) < t.minBattles) canTrigger = false;
+    if (t.minFemaleGenerals && state.generals.filter(g => g.gender === 'female').length < t.minFemaleGenerals) canTrigger = false;
+    if (t.minArmy && state.totalArmy < t.minArmy) canTrigger = false;
+    if (t.minAlliances && state.alliances.length < t.minAlliances) canTrigger = false;
+    if (t.minFemaleCitizens && (state.citizens.inventory.femaleCitizen || 0) < t.minFemaleCitizens) canTrigger = false;
+    if (t.minCityLevel && (state.nationLevel || 1) < t.minCityLevel) canTrigger = false;
+    if (t.minPopulation && state.tribe.population < t.minPopulation) canTrigger = false;
+    if (t.minTechLevel && state.tribe.techLevel < t.minTechLevel) canTrigger = false;
+    if (t.minTurn && state.turn < t.minTurn) canTrigger = false;
+    if (t.nation && state.player.currentNation !== t.nation) canTrigger = false;
+    if (canTrigger) triggered.push(event);
+  }
+  return triggered;
+}
+
+// ===== 72 PASSES & PORTS (关隘+港口) =====
+export const PASSES_PORTS = {
+  // === 关隘 (48 passes) ===
+  passes: [
+    { id:'p_01', name:'玉门关', x:68, y:38, type:'pass', nation:'shanshan', troops:500, desc:'丝路东端第一关' },
+    { id:'p_02', name:'阳关', x:65, y:42, type:'pass', nation:'shanshan', troops:400, desc:'西出阳关无故人' },
+    { id:'p_03', name:'铁门关', x:42, y:32, type:'pass', nation:'karashahr', troops:300, desc:'天山南麓铁门天险' },
+    { id:'p_04', name:'葱岭关', x:10, y:35, type:'pass', nation:'kashgar', troops:250, desc:'帕米尔高原要隘' },
+    { id:'p_05', name:'天山隘口', x:50, y:18, type:'pass', nation:'wusun', troops:200, desc:'天山南北通道' },
+    { id:'p_06', name:'昆仑隘口', x:30, y:65, type:'pass', nation:'khotan', troops:150, desc:'昆仑山北麓要道' },
+    { id:'p_07', name:'阿玛宗山口', x:72, y:22, type:'pass', nation:'amazons', troops:300, desc:'阿玛宗领地入口' },
+    { id:'p_08', name:'火焰口', x:54, y:28, type:'pass', nation:'karakhoja', troops:200, desc:'火焰山隘口' },
+    { id:'p_09', name:'白龙堆', x:58, y:45, type:'pass', nation:'loulan', troops:180, desc:'白龙堆沙漠险道' },
+    { id:'p_10', name:'孔雀河口', x:48, y:42, type:'pass', nation:'weili', troops:120, desc:'孔雀河入湖口' },
+    { id:'p_11', name:'塔里木渡', x:38, y:45, type:'pass', nation:'bugur', troops:150, desc:'塔里木河渡口' },
+    { id:'p_12', name:'疏勒西口', x:5, y:35, type:'pass', nation:'shule', troops:200, desc:'疏勒西出要道' },
+    { id:'p_13', name:'于阗南口', x:22, y:65, type:'pass', nation:'khotan', troops:130, desc:'于阗南通昆仑' },
+    { id:'p_14', name:'龟兹北口', x:35, y:28, type:'pass', nation:'kucha', troops:180, desc:'龟兹北上天山' },
+    { id:'p_15', name:'焉耆西口', x:38, y:30, type:'pass', nation:'karashahr', troops:160, desc:'焉耆西行要道' },
+    { id:'p_16', name:'姑墨南口', x:28, y:45, type:'pass', nation:'aksu', troops:100, desc:'姑墨南通莎车' },
+    { id:'p_17', name:'莎车北口', x:18, y:48, type:'pass', nation:'yarkand', troops:140, desc:'莎车北上要道' },
+    { id:'p_18', name:'精绝隘', x:38, y:58, type:'pass', nation:'niya', troops:80, desc:'精绝古国隘口' },
+    { id:'p_19', name:'且末隘', x:44, y:54, type:'pass', nation:'charklik', troops:90, desc:'且末绿洲隘口' },
+    { id:'p_20', name:'若羌山口', x:66, y:52, type:'pass', nation:'qarqan', troops:110, desc:'阿尔金山口' },
+    { id:'p_21', name:'皮山隘', x:22, y:48, type:'pass', nation:'pishan', troops:70, desc:'皮山小隘' },
+    { id:'p_22', name:'竭石关', x:12, y:48, type:'pass', nation:'jieshi', troops:160, desc:'宝石山关隘' },
+    { id:'p_23', name:'石头城关', x:8, y:38, type:'pass', nation:'tashkurgan', troops:250, desc:'塔什库尔干石城' },
+    { id:'p_24', name:'叶尔羌口', x:18, y:44, type:'pass', nation:'karghalik', troops:100, desc:'叶尔羌河隘口' },
+    { id:'p_25', name:'克里雅隘', x:34, y:60, type:'pass', nation:'keriya', troops:60, desc:'克里雅河隘口' },
+    { id:'p_26', name:'乌恰山口', x:22, y:22, type:'pass', nation:'wucha', troops:130, desc:'乌恰天山隘口' },
+    { id:'p_27', name:'北庭关', x:52, y:18, type:'pass', nation:'beshbaliq', troops:300, desc:'北庭都护关隘' },
+    { id:'p_28', name:'高昌隘', x:48, y:32, type:'pass', nation:'gaochang', troops:200, desc:'交河城隘口' },
+    { id:'p_29', name:'温宿山口', x:33, y:22, type:'pass', nation:'wensu', troops:140, desc:'温宿铁矿隘口' },
+    { id:'p_30', name:'东女国关', x:68, y:52, type:'pass', nation:'dongnv', troops:200, desc:'东女国入口关隘' },
+    { id:'p_31', name:'西梁谷口', x:12, y:38, type:'pass', nation:'xiliang', troops:180, desc:'西梁女国谷口' },
+    { id:'p_32', name:'大宛西口', x:2, y:44, type:'pass', nation:'dayuan', troops:220, desc:'大宛国西端' },
+    { id:'p_33', name:'康居北口', x:4, y:10, type:'pass', nation:'kangju', troops:250, desc:'康居北部关隘' },
+    { id:'p_34', name:'粟特东口', x:10, y:28, type:'pass', nation:'soche', troops:180, desc:'粟特东境关隘' },
+    { id:'p_35', name:'突骑施北口', x:62, y:4, type:'pass', nation:'tokuz', troops:200, desc:'突骑施北境' },
+    { id:'p_36', name:'处密隘', x:62, y:32, type:'pass', nation:'chumi', troops:100, desc:'处密部隘口' },
+    { id:'p_37', name:'处木昆口', x:42, y:6, type:'pass', nation:'chumukun', troops:110, desc:'伊犁河谷隘口' },
+    { id:'p_38', name:'于阗西口', x:14, y:60, type:'pass', nation:'yutian', troops:90, desc:'于阗西境隘口' },
+    { id:'p_39', name:'焉耆南口', x:44, y:34, type:'pass', nation:'yanqi', troops:120, desc:'焉耆南境' },
+    { id:'p_40', name:'危须渡口', x:44, y:32, type:'pass', nation:'kroran', troops:80, desc:'博斯腾湖渡口' },
+    { id:'p_41', name:'扜弥隘', x:28, y:54, type:'pass', nation:'jumi', troops:60, desc:'扜弥小国隘口' },
+    { id:'p_42', name:'且末南口', x:48, y:58, type:'pass', nation:'charchan', troops:70, desc:'且末南境隘口' },
+    { id:'p_43', name:'楼兰东口', x:60, y:45, type:'pass', nation:'loulan', troops:200, desc:'楼兰东境关隘' },
+    { id:'p_44', name:'龟兹南口', x:36, y:42, type:'pass', nation:'kucha', troops:150, desc:'龟兹南下要道' },
+    { id:'p_45', name:'疏勒南口', x:14, y:38, type:'pass', nation:'kashgar', troops:170, desc:'疏勒南通要道' },
+    { id:'p_46', name:'乌孙东口', x:56, y:12, type:'pass', nation:'wusun', troops:230, desc:'乌孙东境' },
+    { id:'p_47', name:'轮台北口', x:40, y:34, type:'pass', nation:'bugur', troops:130, desc:'轮台北境' },
+    { id:'p_48', name:'鄯善南口', x:62, y:55, type:'pass', nation:'shanshan', troops:100, desc:'鄯善南境' },
+  ],
+  // === 港口 (24 ports) ===
+  ports: [
+    { id:'pt_01', name:'楼兰港', x:54, y:46, type:'port', nation:'loulan', troops:200, desc:'罗布泊水运枢纽' },
+    { id:'pt_02', name:'危须渔港', x:44, y:32, type:'port', nation:'kroran', troops:100, desc:'博斯腾湖渔港' },
+    { id:'pt_03', name:'焉耆港', x:46, y:30, type:'port', nation:'yanqi', troops:150, desc:'焉耆湖水港' },
+    { id:'pt_04', name:'于阗港', x:26, y:60, type:'port', nation:'khotan', troops:180, desc:'于阗河港' },
+    { id:'pt_05', name:'莎车渡口', x:20, y:56, type:'port', nation:'yarkand', troops:120, desc:'叶尔羌河渡口' },
+    { id:'pt_06', name:'西梁渡口', x:16, y:42, type:'port', nation:'xiliang', troops:100, desc:'西梁女国渡口' },
+    { id:'pt_07', name:'龟兹码头', x:36, y:36, type:'port', nation:'kucha', troops:130, desc:'龟兹河运码头' },
+    { id:'pt_08', name:'疏勒商港', x:16, y:34, type:'port', nation:'kashgar', troops:160, desc:'疏勒商贸港口' },
+    { id:'pt_09', name:'姑墨渡口', x:30, y:42, type:'port', nation:'aksu', troops:90, desc:'姑墨河渡' },
+    { id:'pt_10', name:'轮台渡口', x:40, y:40, type:'port', nation:'bugur', troops:110, desc:'轮台河渡' },
+    { id:'pt_11', name:'尉犁渔港', x:50, y:40, type:'port', nation:'weili', troops:80, desc:'孔雀河渔港' },
+    { id:'pt_12', name:'精绝古渡', x:38, y:60, type:'port', nation:'niya', troops:60, desc:'尼雅河古渡' },
+    { id:'pt_13', name:'且末码头', x:44, y:54, type:'port', nation:'charklik', troops:70, desc:'且末河码头' },
+    { id:'pt_14', name:'粟特商港', x:6, y:30, type:'port', nation:'soche', troops:140, desc:'粟特河商港' },
+    { id:'pt_15', name:'大宛渡口', x:6, y:44, type:'port', nation:'dayuan', troops:100, desc:'费尔干纳渡口' },
+    { id:'pt_16', name:'竭石港', x:12, y:50, type:'port', nation:'jieshi', troops:80, desc:'宝石山河港' },
+    { id:'pt_17', name:'叶尔羌港', x:18, y:44, type:'port', nation:'karghalik', troops:90, desc:'叶尔羌河港' },
+    { id:'pt_18', name:'高昌码头', x:50, y:34, type:'port', nation:'gaochang', troops:100, desc:'交河码头' },
+    { id:'pt_19', name:'北庭港', x:54, y:20, type:'port', nation:'beshbaliq', troops:120, desc:'北庭水运' },
+    { id:'pt_20', name:'东女国港', x:70, y:56, type:'port', nation:'dongnv', troops:90, desc:'东女国河港' },
+    { id:'pt_21', name:'于阗西港', x:16, y:62, type:'port', nation:'yutian', troops:70, desc:'于阗西境河港' },
+    { id:'pt_22', name:'疏勒西港', x:6, y:38, type:'port', nation:'shule', troops:80, desc:'疏勒西境港' },
+    { id:'pt_23', name:'温宿渡口', x:34, y:24, type:'port', nation:'wensu', troops:60, desc:'温宿河渡' },
+    { id:'pt_24', name:'扜弥渡口', x:30, y:54, type:'port', nation:'jumi', troops:50, desc:'扜弥河渡' },
+  ],
+};
+
+// ===== 39 NATION STORY EVENTS (每个国家3-5个独特剧本事件) =====
+// 当玩家扩张到对应国家附近时触发
+export const NATION_STORY_EVENTS = {
+  // === 楼兰 ===
+  loulan: [
+    { id:'ns_loulan_1', name:'沙海迷城', trigger:{ nearNation:'loulan', minTurn:5 },
+      desc:'你在沙漠中发现了一座被遗忘的楼兰古城遗迹...', choices:[
+        { text:'探索遗迹', reward:{ gold:300, relic:1 }, risk:'ambush' },
+        { text:'报告楼兰王', reward:{ relation:20, gold:100 }, risk:'none' }],
+      lore:'楼兰古城下埋藏着无数秘密...' },
+    { id:'ns_loulan_2', name:'罗布泊之谜', trigger:{ nearNation:'loulan', minTurn:15 },
+      desc:'罗布泊的水位正在下降，楼兰人面临生存危机...', choices:[
+        { text:'帮助修建水渠', cost:{ gold:200, wood:100 }, reward:{ relation:30, unlock:'irrigation_master' } },
+        { text:'趁机进攻', reward:{ plunder:500 }, risk:'war' }],
+      lore:'罗布泊是楼兰的生命之源...' },
+    { id:'ns_loulan_3', name:'丝路关税之争', trigger:{ nearNation:'loulan', minTurn:20, controlledCities:2 },
+      desc:'楼兰商队经过你的领地，是否征收高额关税？', choices:[
+        { text:'合理征税', reward:{ gold:200, relation:-5 } },
+        { text:'免税通行', reward:{ relation:15, tradeRoute:'loulan_silk' } },
+        { text:'扣押商队', reward:{ gold:500, silk:20 }, risk:'war' }] },
+  ],
+  // === 龟兹 ===
+  kucha: [
+    { id:'ns_kucha_1', name:'龟兹乐舞', trigger:{ nearNation:'kucha', minTurn:3 },
+      desc:'龟兹乐师前来献艺，美妙的音乐令人陶醉...', choices:[
+        { text:'重赏乐师', cost:{ gold:100 }, reward:{ culture:20, unlock:'kucha_music' } },
+        { text:'邀请留任', cost:{ gold:200 }, reward:{ culture:40, dancer:5 } }] },
+    { id:'ns_kucha_2', name:'千佛洞秘宝', trigger:{ nearNation:'kucha', minTurn:20 },
+      desc:'龟兹千佛洞中发现了古代经卷和宝物...', choices:[
+        { text:'保护文物', reward:{ culture:30, relation:20 } },
+        { text:'取走宝物', reward:{ gold:500, relic:3 }, risk:'relation_-30' }] },
+    { id:'ns_kucha_3', name:'佛教东传', trigger:{ nearNation:'kucha', minTurn:30 },
+      desc:'龟兹高僧希望借道传播佛法...', choices:[
+        { text:'支持传教', reward:{ culture:50, unlock:'buddhism_spread' } },
+        { text:'收取过境费', reward:{ gold:300 } }] },
+  ],
+  // === 于阗 ===
+  khotan: [
+    { id:'ns_khotan_1', name:'美玉之争', trigger:{ nearNation:'khotan', minTurn:8 },
+      desc:'于阗玉矿发现了罕见的巨型玉石，各方势力虎视眈眈...', choices:[
+        { text:'协助护送', reward:{ jade:30, relation:25 } },
+        { text:'半路截取', reward:{ jade:50 }, risk:'war' }] },
+    { id:'ns_khotan_2', name:'于阗织女', trigger:{ nearNation:'khotan', minTurn:15 },
+      desc:'于阗最出色的织女愿意加入你的领地...', choices:[
+        { text:'欢迎接纳', cost:{ gold:200 }, reward:{ silk_production:30, femaleCitizen:5 } },
+        { text:'送回于阗', reward:{ relation:20 } }] },
+    { id:'ns_khotan_3', name:'玉石之路', trigger:{ nearNation:'khotan', minTurn:25, controlledCities:3 },
+      desc:'于阗希望开辟新的玉石贸易路线...', choices:[
+        { text:'合作共赢', reward:{ tradeRoute:'jade_road', gold:400 } },
+        { text:'独占贸易', reward:{ gold:200 }, risk:'relation_-20' }] },
+  ],
+  // === 阿玛宗 ===
+  amazons: [
+    { id:'ns_amazons_1', name:'女战士的挑战', trigger:{ nearNation:'amazons', minTurn:10 },
+      desc:'阿玛宗女战士向你发出了武斗挑战！', choices:[
+        { text:'应战', reward:{ relation:30, exp:200 }, risk:'injury' },
+        { text:'婉拒', reward:{ relation:-10 } }] },
+    { id:'ns_amazons_2', name:'猎豹之盟', trigger:{ nearNation:'amazons', minTurn:20 },
+      desc:'阿玛宗驯养的猎豹可以帮助你侦察敌情...', choices:[
+        { text:'结盟交换', cost:{ horse:20 }, reward:{ unlock:'falcon_scout', relation:25 } },
+        { text:'购买猎豹', cost:{ gold:500 }, reward:{ falcon:5 } }] },
+    { id:'ns_amazons_3', name:'阿玛宗女王', trigger:{ nearNation:'amazons', minTurn:35 },
+      desc:'阿玛宗女王希望与你面谈联盟事宜...', choices:[
+        { text:'亲自前往', reward:{ alliance:'amazons', femaleGeneral:1 } },
+        { text:'派使者', reward:{ relation:15 } }] },
+  ],
+  // === 西梁女国 ===
+  xiliang: [
+    { id:'ns_xiliang_1', name:'子母河之水', trigger:{ nearNation:'xiliang', minTurn:5 },
+      desc:'你发现了传说中的子母河，河水有神奇力量...', choices:[
+        { text:'取水饮用', reward:{ population:50, unlock:'spring_water' } },
+        { text:'献给西梁', reward:{ relation:30, silk:20 } }] },
+    { id:'ns_xiliang_2', name:'天衣无缝', trigger:{ nearNation:'xiliang', minTurn:18 },
+      desc:'西梁织女织出了传说中的"天衣"...', choices:[
+        { text:'购买天衣', cost:{ gold:1000 }, reward:{ silk:100, unlock:'heavenly_silk' } },
+        { text:'请求学艺', cost:{ gold:300 }, reward:{ unlock:'weaving_tech' } }] },
+    { id:'ns_xiliang_3', name:'女王招亲', trigger:{ nearNation:'xiliang', minTurn:30 },
+      desc:'西梁女王公开招亲，各国使者云集...', choices:[
+        { text:'参加招亲', reward:{ alliance:'xiliang', femaleGeneral:1, relation:50 } },
+        { text:'送礼祝贺', cost:{ gold:500 }, reward:{ relation:20 } }] },
+  ],
+  // === 乌孙 ===
+  wusun: [
+    { id:'ns_wusun_1', name:'天马传说', trigger:{ nearNation:'wusun', minTurn:8 },
+      desc:'乌孙人声称拥有汗血宝马的后代...', choices:[
+        { text:'购买宝马', cost:{ gold:800 }, reward:{ horse:50, unlock:'heavenly_horse' } },
+        { text:'以物易物', cost:{ silk:30 }, reward:{ horse:30 } }] },
+    { id:'ns_wusun_2', name:'草原风暴', trigger:{ nearNation:'wusun', minTurn:20 },
+      desc:'乌孙草原上出现了大规模马匪...', choices:[
+        { text:'协助剿匪', reward:{ relation:25, horse:20, exp:150 } },
+        { text:'置之不理', risk:'raid' }] },
+    { id:'ns_wusun_3', name:'和亲之议', trigger:{ nearNation:'wusun', minTurn:30 },
+      desc:'乌孙王提议和亲，以巩固两国关系...', choices:[
+        { text:'同意和亲', reward:{ alliance:'wusun', relation:40, horse:100 } },
+        { text:'婉言拒绝', reward:{ relation:-15 } }] },
+  ],
+  // === 疏勒 ===
+  kashgar: [
+    { id:'ns_kashgar_1', name:'巴扎盛会', trigger:{ nearNation:'kashgar', minTurn:5 },
+      desc:'疏勒大巴扎正在举办年度商贸盛会...', choices:[
+        { text:'参加商贸', cost:{ gold:200 }, reward:{ spice:30, silk:20, relation:10 } },
+        { text:'设摊售卖', reward:{ gold:400 } }] },
+    { id:'ns_kashgar_2', name:'东西交汇', trigger:{ nearNation:'kashgar', minTurn:15 },
+      desc:'疏勒成为了东西方文化交汇的中心...', choices:[
+        { text:'建设学堂', cost:{ gold:500 }, reward:{ culture:30, unlock:'academy' } },
+        { text:'招募翻译', cost:{ gold:200 }, reward:{ unlock:'translator', diplomacy:15 } }] },
+  ],
+  // === 粟特 ===
+  soche: [
+    { id:'ns_soche_1', name:'粟特商路', trigger:{ nearNation:'soche', minTurn:3 },
+      desc:'粟特商人提议合作开辟新的商路...', choices:[
+        { text:'合作', cost:{ gold:300 }, reward:{ tradeRoute:'sogdian_road', gold_per_turn:50 } },
+        { text:'拒绝', reward:{ relation:-5 } }] },
+    { id:'ns_soche_2', name:'银币之谜', trigger:{ nearNation:'soche', minTurn:20 },
+      desc:'粟特银币在西域流通广泛，是否发行自己的货币？', choices:[
+        { text:'发行货币', cost:{ gold:1000, silver:50 }, reward:{ unlock:'currency', economy:30 } },
+        { text:'使用粟特银币', reward:{ relation:15 } }] },
+  ],
+  // === 康居 ===
+  kangju: [
+    { id:'ns_kangju_1', name:'铁骑南下', trigger:{ nearNation:'kangju', minTurn:10 },
+      desc:'康居铁骑正在集结，似乎准备南下...', choices:[
+        { text:'加强防御', cost:{ gold:200, stone:50 }, reward:{ defense:20 } },
+        { text:'外交斡旋', cost:{ gold:300 }, reward:{ relation:15 } },
+        { text:'先发制人', risk:'war', reward:{ exp:200 } }] },
+    { id:'ns_kangju_2', name:'草原盟约', trigger:{ nearNation:'kangju', minTurn:25 },
+      desc:'康居王提议签订草原互不侵犯条约...', choices:[
+        { text:'签订条约', reward:{ relation:30, peace:20 } },
+        { text:'拒绝', risk:'war' }] },
+  ],
+  // === 大宛 ===
+  dayuan: [
+    { id:'ns_dayuan_1', name:'汗血宝马', trigger:{ nearNation:'dayuan', minTurn:8 },
+      desc:'大宛国愿意出售汗血宝马，但价格不菲...', choices:[
+        { text:'重金购买', cost:{ gold:1500 }, reward:{ horse:100, unlock:'ferghana_horse' } },
+        { text:'以粮换马', cost:{ food:500 }, reward:{ horse:40 } }] },
+    { id:'ns_dayuan_2', name:'费尔干纳谷地', trigger:{ nearNation:'dayuan', minTurn:22 },
+      desc:'费尔干纳谷地物产丰富，是理想的屯田之地...', choices:[
+        { text:'请求租借', cost:{ gold:500 }, reward:{ food_per_turn:30, relation:10 } },
+        { text:'武力夺取', risk:'war', reward:{ territory:1 } }] },
+  ],
+  // === 东女国 ===
+  dongnv: [
+    { id:'ns_dongnv_1', name:'女王使者', trigger:{ nearNation:'dongnv', minTurn:8 },
+      desc:'东女国女王派来使者，希望建立贸易关系...', choices:[
+        { text:'欢迎使者', reward:{ relation:20, silk:15 } },
+        { text:'扣押使者', reward:{ intel:20 }, risk:'war' }] },
+    { id:'ns_dongnv_2', name:'高原药草', trigger:{ nearNation:'dongnv', minTurn:18 },
+      desc:'东女国的药草师拥有神奇的医术...', choices:[
+        { text:'邀请药草师', cost:{ gold:300 }, reward:{ unlock:'herb_mastery', herb:30 } },
+        { text:'交换药草', cost:{ silk:20 }, reward:{ herb:50 } }] },
+    { id:'ns_dongnv_3', name:'女王继承', trigger:{ nearNation:'dongnv', minTurn:35 },
+      desc:'东女国女王驾崩，两位公主争夺王位...', choices:[
+        { text:'支持大公主', reward:{ relation:30, alliance_chance:0.5 }, risk:'civil_war' },
+        { text:'保持中立', reward:{ relation:5 } }] },
+  ],
+  // 通用小国事件模板 (覆盖其余国家)
+  _default: [
+    { id:'ns_default_1', name:'边境冲突', trigger:{ minTurn:10 },
+      desc:'边境部落发生了冲突，需要你出面调停...', choices:[
+        { text:'调停', cost:{ gold:100 }, reward:{ relation:15, exp:50 } },
+        { text:'坐视不管', risk:'relation_-10' }] },
+    { id:'ns_default_2', name:'商队遇袭', trigger:{ minTurn:15 },
+      desc:'一支商队在你的领地附近被马匪袭击...', choices:[
+        { text:'出兵救援', reward:{ gold:200, relation:10, exp:100 } },
+        { text:'收取过路费后放行', reward:{ gold:100 } }] },
+    { id:'ns_default_3', name:'流民涌入', trigger:{ minTurn:20 },
+      desc:'大量流民从邻国涌入你的领地...', choices:[
+        { text:'接纳安置', cost:{ food:200, gold:100 }, reward:{ population:100, relation:10 } },
+        { text:'关闭边境', reward:{ relation:-15 } }] },
+  ],
+};
+
+// 获取国家的剧本事件
+export function getNationStoryEvents(nationId) {
+  return NATION_STORY_EVENTS[nationId] || NATION_STORY_EVENTS._default;
+}
+
+// 检查玩家是否在某国附近（简化版：基于领地距离）
+export function isNearNation(playerLocation, nationId, nations) {
+  if (!nations || !nations[nationId]) return false;
+  const nation = nations[nationId];
+  const cap = nation.capital;
+  if (!cap) return false;
+  const dx = Math.abs(playerLocation.x - cap.x);
+  const dy = Math.abs(playerLocation.y - cap.y);
+  return (dx + dy) <= 20; // 曼哈顿距离<=20视为"附近"
+}
 
 // ===== 6 MAJOR POWER INFLUENCE ZONES =====
 export const INFLUENCE_ZONES = {

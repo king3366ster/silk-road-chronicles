@@ -1,5 +1,6 @@
 /**
- * 西域36国数据 - Enhanced with special skills, difficulty, and major powers
+ * 西域39国数据 - 36 traditional + 3 all-female nations
+ * 东女国、西梁女国、阿玛宗为全女性国家
  */
 
 export const NATIONS = {
@@ -689,6 +690,106 @@ export const NATIONS = {
       population: { name: '牧民繁衍', desc: '自然增长+10%', icon: '⛺' }
     },
     lore: '处木昆人在伊犁河谷放牧牛羊。', difficulty: 'medium', attitude: 'neutral'
+  },
+
+  // ======== 第三全女性国家 ========
+  dongnv: {
+    id: 'dongnv', name: '东女国', nameEn: 'Eastern Queendom',
+    description: '青藏高原东北部的女权古国，女王执政，男子唯务耕战。以纺织和药草闻名。',
+    color: '#C71585', emblem: '👸', terrain: 'mountain', isAllFemale: true,
+    resources: { jade: 2, silk: 3, spice: 2, horse: 1, iron: 1, gold: 2 },
+    military: 55, economy: 75, diplomacy: 70, culture: 85, population: 10000,
+    ruler: 'char_dongnv_001',
+    capital: { x: 70, y: 55 },
+    territory: [
+      { x: 65, y: 50 }, { x: 70, y: 50 }, { x: 75, y: 50 },
+      { x: 65, y: 55 }, { x: 70, y: 55 }, { x: 75, y: 55 },
+      { x: 70, y: 60 }
+    ],
+    speciality: '女王纺织',
+    skills: {
+      military: { name: '女王卫队', desc: '女王亲卫战斗力+30%', icon: '👸' },
+      economy: { name: '女工织造', desc: '纺织产出+45%', icon: '🧵' },
+      agriculture: { name: '高原药草', desc: '药草产出+40%', icon: '🌿' },
+      diplomacy: { name: '女王外交', desc: '女性统治者外交+30', icon: '👑' },
+      population: { name: '母系传承', desc: '女性人口增长+25%', icon: '👩‍👧' }
+    },
+    lore: '东女国位于青藏高原东北部，是史书记载的真实女权国家。国中由女王执政，朝中官员皆为女性，男子不得干政，唯务耕战。东女国女子擅长纺织和药草，其丝绸品质仅次于西梁。',
+    difficulty: 'medium', attitude: 'neutral'
+  },
+
+  // ======== 补充传统西域小国 ========
+  wensu: {
+    id: 'wensu', name: '温宿', nameEn: 'Wensu',
+    description: '天山南麓的绿洲小国，以出产良马和铁矿闻名。',
+    color: '#B8860B', emblem: '🏔️', terrain: 'mountain',
+    resources: { jade: 0, silk: 1, spice: 0, horse: 3, iron: 3, gold: 1 },
+    military: 50, economy: 45, diplomacy: 45, culture: 40, population: 4500,
+    ruler: 'char_wensu_001', capital: { x: 35, y: 25 },
+    territory: [{ x: 30, y: 20 }, { x: 35, y: 20 }, { x: 30, y: 25 }, { x: 35, y: 25 }],
+    speciality: '铁矿冶炼', skills: {
+      military: { name: '铁甲兵', desc: '铁甲防御+20%', icon: '🛡️' },
+      economy: { name: '铁矿出口', desc: '铁矿利润+35%', icon: '⛏️' },
+      agriculture: { name: '山谷牧场', desc: '山谷畜牧+20%', icon: '🐐' },
+      diplomacy: { name: '铁器外交', desc: '赠铁器好感+20', icon: '⚒️' },
+      population: { name: '矿工家族', desc: '矿工+15%', icon: '👨‍🔧' }
+    },
+    lore: '温宿国虽小，但其铁矿品质上乘，锻造的兵器锋利耐用。', difficulty: 'medium', attitude: 'neutral'
+  },
+
+  weili: {
+    id: 'weili', name: '尉犁', nameEn: 'Weili',
+    description: '孔雀河畔的绿洲小国，以渔猎和灌溉农业闻名。',
+    color: '#20B2AA', emblem: '🦢', terrain: 'lake',
+    resources: { jade: 1, silk: 1, spice: 1, horse: 1, iron: 1, gold: 1 },
+    military: 35, economy: 50, diplomacy: 50, culture: 45, population: 3500,
+    ruler: 'char_weili_001', capital: { x: 50, y: 40 },
+    territory: [{ x: 45, y: 35 }, { x: 50, y: 35 }, { x: 45, y: 40 }, { x: 50, y: 40 }],
+    speciality: '灌溉农业', skills: {
+      military: { name: '河防', desc: '河流防御+20%', icon: '🌊' },
+      economy: { name: '灌溉农业', desc: '灌溉产出+35%', icon: '💧' },
+      agriculture: { name: '渔猎', desc: '渔猎产出+30%', icon: '🐟' },
+      diplomacy: { name: '河畔交流', desc: '邻国好感+10', icon: '🤝' },
+      population: { name: '渔农家族', desc: '渔农+15%', icon: '🎣' }
+    },
+    lore: '尉犁国依孔雀河而建，灌溉系统精巧，农业发达。', difficulty: 'easy', attitude: 'friendly'
+  },
+
+  // ======== 补充西域古国 ========
+  yutian: {
+    id: 'yutian', name: '于阗西', nameEn: 'Western Khotan',
+    description: '于阗以西的绿洲小国，以出产美玉和良马闻名。',
+    color: '#2ECC71', emblem: '💎', terrain: 'oasis',
+    resources: { jade: 4, silk: 1, spice: 1, horse: 2, iron: 1, gold: 2 },
+    military: 40, economy: 60, diplomacy: 55, culture: 50, population: 5000,
+    ruler: 'char_yutian_001', capital: { x: 18, y: 62 },
+    territory: [{ x: 13, y: 57 }, { x: 18, y: 57 }, { x: 13, y: 62 }, { x: 18, y: 62 }],
+    speciality: '玉石加工', skills: {
+      military: { name: '玉甲卫', desc: '玉甲防御+15%', icon: '🛡️' },
+      economy: { name: '玉石雕刻', desc: '玉器利润+45%', icon: '💎' },
+      agriculture: { name: '河畔牧场', desc: '河畔畜牧+20%', icon: '🐎' },
+      diplomacy: { name: '玉器外交', desc: '赠玉器好感+25', icon: '🎁' },
+      population: { name: '玉匠家族', desc: '玉匠+20%', icon: '👨‍🎨' }
+    },
+    lore: '于阗西国以玉石加工闻名，其雕刻工艺精湛绝伦。', difficulty: 'easy', attitude: 'friendly'
+  },
+
+  shule: {
+    id: 'shule', name: '疏勒西', nameEn: 'Western Kashgar',
+    description: '疏勒以西的商贸小国，扼守葱岭东麓要道。',
+    color: '#1ABC9C', emblem: '🏔️', terrain: 'mountain',
+    resources: { jade: 1, silk: 2, spice: 3, horse: 2, iron: 2, gold: 2 },
+    military: 55, economy: 65, diplomacy: 60, culture: 50, population: 6000,
+    ruler: 'char_shule_001', capital: { x: 8, y: 38 },
+    territory: [{ x: 3, y: 33 }, { x: 8, y: 33 }, { x: 3, y: 38 }, { x: 8, y: 38 }],
+    speciality: '关隘贸易', skills: {
+      military: { name: '山口防御', desc: '山口防御+35%', icon: '🏔️' },
+      economy: { name: '过境贸易', desc: '过境收入+30%', icon: '💰' },
+      agriculture: { name: '梯田', desc: '山地农业+15%', icon: '🌿' },
+      diplomacy: { name: '驿站', desc: '使者速度+30%', icon: '🏇' },
+      population: { name: '商旅定居', desc: '商人定居+20%', icon: '🏠' }
+    },
+    lore: '疏勒西国扼守葱岭东麓，是东西方商队必经之地。', difficulty: 'medium', attitude: 'neutral'
   },
 
   gaochang: {

@@ -1,12 +1,13 @@
 /**
- * Military Scene v3 - 军事管理
- * 7 unit types with counter system, mercenaries, all-female nation support
+ * Military Scene v4 - 军事管理 + 战争前置条件
+ * 7 unit types with counter system, mercenaries, war prerequisites
  */
 import { state } from '../core/gameState.js';
-import { NATION_LIST } from '../data/nations.js';
-import { UNIT_TYPES, COUNTER_TABLE, MERCENARY_TYPES, isAllFemaleNation } from '../data/worldData.js';
+import { NATION_LIST, NATIONS } from '../data/nations.js';
+import { UNIT_TYPES, COUNTER_TABLE, MERCENARY_TYPES, TRIBES_FULL, isAllFemaleNation } from '../data/worldData.js';
+import { canAttackNation, ABILITIES, RECRUITMENT_COSTS } from '../data/questSystem.js';
 
-let _tab = 'army'; // army | counter | mercenary | recruit
+let _tab = 'army'; // army | counter | mercenary | recruit | war
 
 export function showMilitary(game) {
   game._clearUI();
@@ -18,7 +19,7 @@ function _renderMilitary(game) {
   game.ui.createPanel(20, 20, game.w - 40, game.h - 40, '⚔️ 军事管理');
 
   // Tab bar
-  const tabs = ['army|兵力总览', 'counter|克制关系', 'mercenary|雇佣兵', 'recruit|征兵'];
+  const tabs = ['army|兵力总览', 'counter|克制关系', 'mercenary|雇佣兵', 'recruit|征兵', 'war|⚔️宣战'];
   let tx = 60;
   tabs.forEach(t => {
     const [id, label] = t.split('|');
@@ -36,6 +37,7 @@ function _renderMilitary(game) {
   else if (_tab === 'counter') _renderCounter(game, cx + 10, cy + 10, cw - 20, ch - 20);
   else if (_tab === 'mercenary') _renderMercenary(game, cx + 10, cy + 10, cw - 20, ch - 20);
   else if (_tab === 'recruit') _renderRecruit(game, cx + 10, cy + 10, cw - 20, ch - 20);
+  else if (_tab === 'war') _renderWar(game, cx + 10, cy + 10, cw - 20, ch - 20);
 
   game.ui.createButton(game.w / 2 - 60, game.h - 60, 120, 40, '返回地图', () => game._showMap());
 }
@@ -195,4 +197,82 @@ function _renderRecruit(game, x, y, w, h) {
     }, 0x8B0000);
     y += 52;
   });
+}
+
+// === WAR DECLARATION TAB ===
+function _renderWar(game, x, y, w, h) {
+  const hasWarAbility = state.unlockedAbilities.includes('war_declaration');
+
+  game.ui.createText(x, y, '⚔️ 宣战管理', { fontSize: 16, fill: 0xFFD700, bold: true });
+  y += 22;
+
+  if (!hasWarAbility) {
+    game.ui.createText(x, y, '🔒 需要先解锁「宣战能力」', { fontSize: 13, fill: 0xE74C3C });
+    y += 20;
+    game.ui.createText(x, y, '💡 完成城市发展任务，将城市升级至3级即可解锁。', { fontSize: 11, fill: 0x888888 });
+    y += 20;
+    game.ui.createText(x, y, `当前城市等级: ${state.nationLevel} (需要3级)`, { fontSize: 11, fill: 0xAAAAAA });
+    return;
+  }
+
+  game.ui.createText(x, y, `我方总兵力: ${state.totalArmy} | 金: ${state.player.gold} | 粮: ${state.resources.food}`, 
+    { fontSize: 12, fill: 0xD4A853 });
+  y += 20;
+  game.ui.createText(x, y, '⚠️ 攻城前需完成该城邦50%以上的部落任务', { fontSize: 11, fill: 0xF39C12 });
+  y += 25;
+
+  // Nation list with war prerequisites
+  game.ui.createText(x, y, '【城邦攻占条件】', { fontSize: 13, fill: 0xFFD700, bold: true }); y += 22;
+
+  const nationKeys = Object.keys(NATIONS).slice(0, 10);
+  nationKeys.forEach(nId => {
+    const nation = NATIONS[nId];
+    if (!nation) return;
+    const nc = parseInt(nation.color.slice(1), 16);
+    const attackCheck = canAttackNation(nId, state, TRIBES_FULL);
+    const isAtWar = state.atWar?.includes(nId);
+
+    game.ui.createPanel(x, y, w - 20, 55, '', 0x1a0a04);
+    game.ui.createText(x + 10, y + 5, `${nation.name}`, { fontSize: 13, fill: nc, bold: true });
+    if (isAllFemaleNation(nId)) {
+      game.ui.createText(x + 100, y + 5, '♀', { fontSize: 13, fill: 0xFF69B4 });
+    }
+    game.ui.createText(x + 10, y + 22, attackCheck.reason, { fontSize: 11, fill: attackCheck.canAttack ? 0x27AE60 : 0x888888 });
+
+    // Progress bar for tribe quests
+    if (attackCheck.total > 0) {
+      game.ui.createText(x + 10, y + 38, `部落任务: ${attackCheck.completed}/${attackCheck.required}(需${Math.ceil(attackCheck.total * 0.5)}/${attackCheck.total})`, 
+        { fontSize: 10, fill: 0x85C1E9 });
+      game.ui.createProgressBar(x + 250, y + 38, 100, 8, attackCheck.completed, attackCheck.total, 
+        attackCheck.canAttack ? 0x27AE60 : 0xF39C12);
+    }
+
+    if (isAtWar) {
+      game.ui.createButton(x + w - 120, y + 12, 90, 28, '⚔️交战中', () => {}, 0x8B0000);
+    } else if (attackCheck.canAttack) {
+      game.ui.createButton(x + w - 120, y + 12, 90, 28, '⚔️宣战!', () => {
+        if (confirm(`确定向${nation.name}宣战？\n这将消耗大量资源和兵力。`)) {
+          state.declareWar(nId);
+          alert(`已向${nation.name}宣战！`);
+          _renderMilitary(game);
+        }
+      }, 0xE74C3C);
+    } else {
+      game.ui.createText(x + w - 120, y + 15, '🔒不可攻', { fontSize: 11, fill: 0x666666 });
+    }
+    y += 60;
+  });
+
+  // Active wars
+  if (state.atWar?.length > 0) {
+    y += 5;
+    game.ui.createText(x, y, `【当前交战: ${state.atWar.length}】`, { fontSize: 12, fill: 0xE74C3C, bold: true }); y += 20;
+    state.atWar.forEach(nId => {
+      const nation = NATIONS[nId];
+      if (nation) {
+        game.ui.createText(x + 10, y, `⚔️ ${nation.name}`, { fontSize: 11, fill: parseInt(nation.color.slice(1), 16) });
+        y += 16;
+      }
+    });
+  }
 }

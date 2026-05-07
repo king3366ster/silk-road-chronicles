@@ -1,10 +1,11 @@
 /**
- * Tribe Scene v3 - 部落管理
- * 6 slave types, typed plunder, tribute system
+ * Tribe Scene v4 - 部落管理 + 任务系统
+ * Quest/ability progression, city development, war prerequisites
  */
 import { state } from '../core/gameState.js';
 import { NATIONS } from '../data/nations.js';
-import { TRIBES_FULL, GARRISONS, RESOURCE_TYPES, SLAVE_TYPES, SLAVE_MARKETS, SLAVE_ROLES, SLAVE_TRAINING, SLAVE_PREFERENCES, PLUNDER_RULES, RECRUIT_RULES, INFLUENCE_ZONES, UNIT_TYPES } from '../data/worldData.js';
+import { TRIBES_FULL, GARRISONS, RESOURCE_TYPES, SLAVE_TYPES, SLAVE_MARKETS, SLAVE_ROLES, SLAVE_PREFERENCES, PLUNDER_RULES, RECRUIT_RULES, INFLUENCE_ZONES, UNIT_TYPES } from '../data/worldData.js';
+import { getAvailableQuests, generateTribeQuests, generateCapitalQuests, canAttackNation, getNextObjective, ABILITIES, GAME_PHASES, CITY_DEVELOPMENT, RECRUITMENT_COSTS } from '../data/questSystem.js';
 
 let _tab = 'tribes';
 let _nationFilter = 'all';
@@ -20,7 +21,7 @@ export function showTribe(game) {
 function _renderTribe(game) {
   game.ui.createPanel(20, 20, game.w - 40, game.h - 40, '🏕️ 部落与势力管理');
 
-  const tabs = ['tribes|部落总览', 'garrison|城邦守军', 'slaves|奴隶管理', 'trade|奴隶买卖', 'recruit|征兵招募', 'influence|六大帝国'];
+  const tabs = ['tribes|部落总览', 'quests|📜任务', 'develop|城市发展', 'garrison|城邦守军', 'slaves|奴隶管理', 'trade|奴隶买卖', 'recruit|征兵招募', 'influence|六大帝国'];
   let tx = 40;
   tabs.forEach(t => {
     const [id, label] = t.split('|');
@@ -34,6 +35,8 @@ function _renderTribe(game) {
   game.ui.createPanel(cx, cy, cw, ch, '', 0x1a1008);
 
   if (_tab === 'tribes') _renderTribes(game, cx + 10, cy + 10, cw - 20, ch - 20);
+  else if (_tab === 'quests') _renderQuests(game, cx + 10, cy + 10, cw - 20, ch - 20);
+  else if (_tab === 'develop') _renderDevelopment(game, cx + 10, cy + 10, cw - 20, ch - 20);
   else if (_tab === 'garrison') _renderGarrison(game, cx + 10, cy + 10, cw - 20, ch - 20);
   else if (_tab === 'slaves') _renderSlaves(game, cx + 10, cy + 10, cw - 20, ch - 20);
   else if (_tab === 'trade') _renderSlaveTrade(game, cx + 10, cy + 10, cw - 20, ch - 20);
@@ -313,6 +316,224 @@ function _renderInfluence(game, x, y, w, h) {
     game.ui.createProgressBar(x + 10, y + 60, 200, 8, zone.influence, 100, c);
     y += 82;
   });
+}
+
+// === QUEST & PROGRESSION TAB ===
+
+function _renderQuests(game, x, y, w, h) {
+  // Current phase & objective
+  const phase = state.gamePhase || 'nation_select';
+  const phaseData = GAME_PHASES[phase] || GAME_PHASES.nation_select;
+  const nextObj = getNextObjective(state, TRIBES_FULL);
+
+  game.ui.createText(x, y, `${phaseData.icon} 当前阶段: ${phaseData.name}`, { fontSize: 14, fill: 0xFFD700, bold: true });
+  y += 20;
+  game.ui.createText(x, y, `📋 ${nextObj.text}`, { fontSize: 12, fill: 0x50C878 });
+  y += 20;
+  game.ui.createText(x, y, `回合:${state.turn} | 等级:${state.nationLevel} | 金:${state.player.gold} | 粮:${state.resources.food}`, { fontSize: 11, fill: 0xAAAAAA });
+  y += 25;
+
+  // Unlocked abilities
+  game.ui.createText(x, y, '【已解锁能力】', { fontSize: 12, fill: 0xD4A853, bold: true }); y += 20;
+  if (state.unlockedAbilities.length === 0) {
+    game.ui.createText(x + 10, y, '暂无 - 完成任务来解锁能力', { fontSize: 11, fill: 0x888888 });
+    y += 18;
+  } else {
+    let abX = x + 10;
+    state.unlockedAbilities.forEach(abId => {
+      const ab = ABILITIES[abId];
+      if (ab) {
+        game.ui.createText(abX, y, `${ab.icon}${ab.name}`, { fontSize: 11, fill: 0x50C878 });
+        abX += 80;
+        if (abX > x + w - 80) { abX = x + 10; y += 18; }
+      }
+    });
+    y += 22;
+  }
+
+  y += 5;
+  // Available quests
+  game.ui.createText(x, y, '【可接任务】', { fontSize: 13, fill: 0xFFD700, bold: true }); y += 22;
+
+  const availableQuests = getAvailableQuests(state, TRIBES_FULL);
+  if (availableQuests.length === 0) {
+    game.ui.createText(x + 10, y, '当前没有可用任务。', { fontSize: 11, fill: 0x888888 });
+    game.ui.createText(x + 10, y + 18, '💡 提示：选择城邦后触发城邦任务，完成后解锁部落任务。', { fontSize: 11, fill: 0x666666 });
+    y += 40;
+  } else {
+    availableQuests.forEach(quest => {
+      const canComplete = state.checkQuestCompletion(quest);
+      const diffColors = { easy: 0x27AE60, medium: 0xF39C12, hard: 0xE74C3C };
+      const dc = diffColors[quest.difficulty] || 0xAAAAAA;
+
+      game.ui.createPanel(x, y, w - 20, 70, '', 0x1a0a04);
+      game.ui.createText(x + 10, y + 5, `${quest.name}`, { fontSize: 12, fill: 0xF0E68C, bold: true });
+      game.ui.createText(x + w - 100, y + 5, `[${quest.difficulty || '?'}]`, { fontSize: 11, fill: dc });
+      game.ui.createText(x + 10, y + 22, quest.desc, { fontSize: 10, fill: 0xCCCCCC });
+
+      // Objectives
+      const objStr = (quest.objectives || []).map(o => o.desc).join(' | ');
+      game.ui.createText(x + 10, y + 37, `目标: ${objStr}`, { fontSize: 10, fill: 0x85C1E9 });
+
+      // Rewards
+      const r = quest.rewards || {};
+      const rewardParts = [];
+      if (r.gold) rewardParts.push(`金+${r.gold}`);
+      if (r.food) rewardParts.push(`粮+${r.food}`);
+      if (r.unlockAbility) rewardParts.push(`解锁:${ABILITIES[r.unlockAbility]?.name || r.unlockAbility}`);
+      if (r.unlockAbility2) rewardParts.push(`解锁:${ABILITIES[r.unlockAbility2]?.name || r.unlockAbility2}`);
+      if (r.citizens) rewardParts.push('公民');
+      if (r.slaves) rewardParts.push('奴隶');
+      game.ui.createText(x + 10, y + 52, `奖励: ${rewardParts.join(' | ')}`, { fontSize: 10, fill: 0x50C878 });
+
+      // Accept/Complete button
+      if (canComplete) {
+        game.ui.createButton(x + w - 100, y + 35, 80, 28, '✅ 完成', () => {
+          const result = state.payAndCompleteQuest(quest);
+          alert(result.msg);
+          _renderTribe(game);
+        }, 0x27AE60);
+      } else {
+        game.ui.createButton(x + w - 100, y + 35, 80, 28, '📋 接受', () => {
+          state.startQuest(quest.id);
+          alert(`已接受任务: ${quest.name}\n${quest.desc}`);
+          _renderTribe(game);
+        }, 0x2E4053);
+      }
+      y += 75;
+    });
+  }
+
+  // Completed quests
+  y += 5;
+  const completedCount = state.completedQuests.length;
+  game.ui.createText(x, y, `【已完成任务: ${completedCount}】`, { fontSize: 12, fill: 0xD4A853, bold: true }); y += 20;
+  const recentCompleted = state.completedQuests.slice(-5);
+  recentCompleted.forEach(qId => {
+    game.ui.createText(x + 10, y, `✅ ${qId}`, { fontSize: 10, fill: 0x666666 });
+    y += 15;
+  });
+
+  // War prerequisites for each nation
+  y += 10;
+  game.ui.createText(x, y, '【攻城前置条件】', { fontSize: 12, fill: 0xD4A853, bold: true }); y += 20;
+  const nationKeys = Object.keys(NATIONS).slice(0, 10);
+  nationKeys.forEach(nId => {
+    const attackCheck = canAttackNation(nId, state, TRIBES_FULL);
+    const nation = NATIONS[nId];
+    const nc = nation ? parseInt(nation.color.slice(1), 16) : 0xAAAAAA;
+    const statusIcon = attackCheck.canAttack ? '⚔️' : '🔒';
+    game.ui.createText(x + 10, y, `${statusIcon} ${nation?.name || nId}: ${attackCheck.reason}`, 
+      { fontSize: 10, fill: attackCheck.canAttack ? 0x27AE60 : 0x888888 });
+    y += 16;
+  });
+}
+
+// === CITY DEVELOPMENT TAB ===
+
+function _renderDevelopment(game, x, y, w, h) {
+  const cs = state.cityStats;
+  const levelInfo = CITY_DEVELOPMENT.cityLevelEffects[state.nationLevel] || CITY_DEVELOPMENT.cityLevelEffects[1];
+
+  game.ui.createText(x, y, `📈 城市发展 (等级${state.nationLevel}: ${levelInfo.name})`, { fontSize: 14, fill: 0xFFD700, bold: true });
+  y += 22;
+  game.ui.createText(x, y, `${levelInfo.desc}`, { fontSize: 11, fill: 0xAAAAAA });
+  y += 20;
+
+  // City stats
+  game.ui.createText(x, y, '【城市属性】', { fontSize: 12, fill: 0xD4A853, bold: true }); y += 20;
+  const statItems = [
+    { label: '粮食产出', val: cs.food_production, icon: '🌾' },
+    { label: '金币产出', val: cs.gold_production, icon: '💰' },
+    { label: '科技产出', val: cs.tech_production, icon: '🔬' },
+    { label: '兵器产出', val: cs.weapon_production, icon: '⚔️' },
+    { label: '征兵容量', val: cs.recruit_capacity, icon: '🗡️' },
+    { label: '骑兵容量', val: cs.cavalry_capacity, icon: '🐎' },
+    { label: '骆驼容量', val: cs.camel_capacity, icon: '🐫' },
+    { label: '人口上限', val: cs.max_population, icon: '👥' },
+  ];
+  let sx = x + 10;
+  statItems.forEach(s => {
+    game.ui.createText(sx, y, `${s.icon}${s.label}:${s.val}`, { fontSize: 10, fill: 0xCCCCCC });
+    sx += 100;
+    if (sx > x + w - 100) { sx = x + 10; y += 16; }
+  });
+  y += 22;
+
+  // Upgrade button
+  game.ui.createText(x, y, '【城市升级】', { fontSize: 12, fill: 0xD4A853, bold: true }); y += 20;
+  const canUpgrade = state.canDo('upgrade_city');
+  if (canUpgrade.canDo) {
+    game.ui.createButton(x + 10, y, 120, 28, `升级至${state.nationLevel + 1}级`, () => {
+      const result = state.upgradeNationLevel();
+      alert(result.msg);
+      _renderTribe(game);
+    }, 0x50C878);
+  } else {
+    game.ui.createText(x + 10, y, `🔒 ${canUpgrade.reason}`, { fontSize: 11, fill: 0x888888 });
+  }
+  y += 35;
+
+  // Available projects
+  game.ui.createText(x, y, '【建设项目】', { fontSize: 13, fill: 0xFFD700, bold: true }); y += 22;
+  const projects = CITY_DEVELOPMENT.projects;
+  const categories = { agriculture: '🌾农业', commerce: '💰商业', military: '⚔️军事', tech: '🔬科技', population: '👥人口' };
+  let currentCat = '';
+
+  Object.entries(projects).forEach(([pId, proj]) => {
+    if (proj.requireCityLevel > state.nationLevel) return;
+    if (state.cityProjects[pId]) return; // already built
+
+    // Category header
+    if (proj.category !== currentCat) {
+      currentCat = proj.category;
+      y += 5;
+      game.ui.createText(x + 5, y, categories[proj.category] || proj.category, { fontSize: 11, fill: 0xD4A853, bold: true });
+      y += 18;
+    }
+
+    const canBuild = state.canDo(proj.requireAbility === 'agriculture' ? 'build_farm' :
+      proj.requireAbility === 'commerce' ? 'build_market' :
+      proj.requireAbility === 'horse_ranch' ? 'build_stable' :
+      proj.requireAbility === 'weapon_forge' ? 'build_forge' : proj.requireAbility);
+
+    const hasAbility_ = !proj.requireAbility || state.unlockedAbilities.includes(proj.requireAbility);
+    game.ui.createPanel(x + 10, y, w - 40, 40, '', 0x1a0a04);
+    game.ui.createText(x + 20, y + 5, `${proj.icon} ${proj.name}`, { fontSize: 11, fill: hasAbility_ ? 0xF0E68C : 0x666666, bold: true });
+    game.ui.createText(x + 20, y + 20, proj.desc, { fontSize: 10, fill: 0x888888 });
+
+    // Cost
+    const costStr = Object.entries(proj.cost).map(([k, v]) => `${k}:${v}`).join(' ');
+    game.ui.createText(x + 250, y + 5, `费用: ${costStr}`, { fontSize: 10, fill: 0xCCCCCC });
+    // Effect
+    const effectStr = Object.entries(proj.effect).map(([k, v]) => `${k}+${v}`).join(' ');
+    game.ui.createText(x + 250, y + 20, `效果: ${effectStr}`, { fontSize: 10, fill: 0x50C878 });
+
+    if (hasAbility_) {
+      game.ui.createButton(x + w - 120, y + 5, 70, 28, '建造', () => {
+        const result = state.buildProject(pId);
+        alert(result.msg);
+        _renderTribe(game);
+      }, 0x2E4053);
+    } else {
+      game.ui.createText(x + w - 120, y + 10, `🔒需${ABILITIES[proj.requireAbility]?.name || proj.requireAbility}`, { fontSize: 9, fill: 0xE74C3C });
+    }
+    y += 45;
+  });
+
+  // Built projects
+  const builtIds = Object.keys(state.cityProjects);
+  if (builtIds.length > 0) {
+    y += 5;
+    game.ui.createText(x, y, `【已建造: ${builtIds.length}】`, { fontSize: 12, fill: 0xD4A853, bold: true }); y += 18;
+    builtIds.forEach(pId => {
+      const proj = projects[pId];
+      if (proj) {
+        game.ui.createText(x + 10, y, `✅ ${proj.icon} ${proj.name}`, { fontSize: 10, fill: 0x50C878 });
+        y += 14;
+      }
+    });
+  }
 }
 
 // === Actions ===
