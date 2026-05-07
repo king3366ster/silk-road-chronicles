@@ -11,6 +11,7 @@ import { GENERAL_SYSTEM, CITIZEN_TYPES, CITIZEN_JOBS, ALL_FEMALE_NATIONS,
   checkEvents } from '../data/worldData.js';
 import { getCurrentPhase, canPerformAction, hasAbility,
   CITY_DEVELOPMENT, RECRUITMENT_COSTS, ABILITIES } from '../data/questSystem.js';
+import { TURN_SYSTEM, MONTHLY_SETTLEMENT, OFFICIAL_SYSTEM } from '../data/resourceSystem.js';
 
 export const state = {
   turn: 1, phase: 'menu', gamePhase: 'nation_select',
@@ -82,16 +83,24 @@ export const state = {
     },
   },
   // ===== GENERAL SYSTEM (武将系统 - 参考三国志) =====
-  // 武将可带兵攻城掠地，攻城必须有武将
   generals: [],  // Array of general objects
-  // General names pool
+  // ===== OFFICIAL SYSTEM (文官系统) =====
+  officials: [], // Array of official objects
+  // General/Official names pool
   _generalNames: {
     male: ['赵破奴', '甘延寿', '陈汤', '班超', '班勇', '耿恭', '窦固', '窦宪',
            '张骞', '卫青', '霍去病', '李广', '公孙敖', '苏建', '李陵', '赵充国'],
     female: ['花木兰', '妇好', '吕母', '冼夫人', '平阳公主', '秦良玉',
              '梁红玉', '樊梨花', '穆桂英', '阿史那', '细君公主', '解忧公主'],
   },
+  _officialNames: {
+    male: ['张衡', '蔡伦', '司马迁', '班固', '董仲舒', '主父偃', '桑弘羊', '萧何',
+           '陈平', '张良', '诸葛亮', '荀彧', '郭嘉', '贾诩', '鲁肃', '张昭'],
+    female: ['上官婉儿', '蔡文姬', '班昭', '卓文君', '谢道韫', '长孙皇后',
+             '武则天', '太平公主', '文成公主', '金城公主', '王昭君', '貂蝉'],
+  },
   _nameIdx: 0,
+  _offNameIdx: 0,
 
   // Hired characters
   hiredGenerals: [], hiredOfficials: [], hiredMerchants: [], hiredSpies: [],
@@ -405,6 +414,18 @@ export const state = {
     const name = pool[this._nameIdx % pool.length];
     this._nameIdx++;
     return name;
+  },
+
+  _getNextOfficialName(gender) {
+    const pool = this._officialNames[gender] || this._officialNames.male;
+    const name = pool[this._offNameIdx % pool.length];
+    this._offNameIdx++;
+    return name;
+  },
+
+  // Turn info (month/season from TURN_SYSTEM)
+  get turnInfo() {
+    return TURN_SYSTEM.getMonthInfo(this.turn);
   },
 
   sendGift(nId, type, amt) {},

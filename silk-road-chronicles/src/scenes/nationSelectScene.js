@@ -168,11 +168,14 @@ function renderDetailPanel(game) {
   });
   y += 22;
 
-  // Description
-  game.ui.createText(panelX + 10, y, nation.description, {
+  // Description (clamped to avoid overflow)
+  const descText = nation.description || '';
+  const maxDescLen = 60;
+  const displayDesc = descText.length > maxDescLen ? descText.slice(0, maxDescLen) + '...' : descText;
+  game.ui.createText(panelX + 10, y, displayDesc, {
     fontSize: 12, fill: 0xCCCCCC, wordWrap: true, wordWrapWidth: panelW - 20
   });
-  y += 40;
+  y += 35;
 
   // Difficulty
   let diffColor = 0xD4A853;

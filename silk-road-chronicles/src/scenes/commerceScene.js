@@ -1,6 +1,6 @@
 /**
  * Commerce Scene v3 - 商贸管理
- * Typed slave trading with preferences
+ * Fixed: replaced alert() with toast
  */
 import { state } from '../core/gameState.js';
 import { SLAVE_TYPES, SLAVE_MARKETS, SLAVE_ROLES, SLAVE_PREFERENCES, RESOURCE_TYPES } from '../data/worldData.js';
@@ -23,12 +23,12 @@ function _renderCommerce(game) {
     const [id, label] = t.split('|');
     const active = _tab === id;
     game.ui.createButton(tx, 65, 100, 28, label, () => { _tab = id; _renderCommerce(game); },
-      active ? 0xD4A853 : 0x4A3728, active ? 0x000000 : 0xD4A853);
+      { color: active ? 0xD4A853 : 0x4A3728, textColor: active ? 0x000000 : 0xD4A853 });
     tx += 110;
   });
 
   const cx = 50, cy = 100, cw = game.w - 100, ch = game.h - 180;
-  game.ui.createPanel(cx, cy, cw, ch, '', 0x1a1008);
+  game.ui.createPanel(cx, cy, cw, ch, '', { bgColor: 0x1a1008 });
 
   if (_tab === 'resources') _renderResources(game, cx + 10, cy + 10, cw - 20, ch - 20);
   else if (_tab === 'slaves') _renderSlaveMarket(game, cx + 10, cy + 10, cw - 20, ch - 20);
@@ -55,11 +55,13 @@ function _renderResources(game, x, y, w, h) {
 
     game.ui.createText(x + 10, y, `${icon}${name}: ${amount} (单价${price}金)`, { fontSize: 12, fill: 0xF0E68C });
     game.ui.createButton(x + 280, y - 10, 50, 24, '卖出', () => {
-      if (state.resources[res] > 0) { state.resources[res]--; state.addGold(price); _renderCommerce(game); }
-    }, 0x8B0000);
+      if (state.resources[res] > 0) { state.resources[res]--; state.addGold(price); game.ui.showToast(`卖出1${name}，+${price}金`); _renderCommerce(game); }
+      else game.ui.showToast('库存不足！');
+    }, { color: 0x8B0000 });
     game.ui.createButton(x + 340, y - 10, 50, 24, '买入', () => {
-      if (state.player.gold >= price) { state.addGold(-price); state.resources[res]++; _renderCommerce(game); }
-    }, 0x2E4053);
+      if (state.player.gold >= price) { state.addGold(-price); state.resources[res]++; game.ui.showToast(`买入1${name}，-${price}金`); _renderCommerce(game); }
+      else game.ui.showToast('金币不足！');
+    }, { color: 0x2E4053 });
     y += 28;
   });
 }
@@ -70,7 +72,6 @@ function _renderSlaveMarket(game, x, y, w, h) {
   game.ui.createText(x, y, `金币: ${state.player.gold}`, { fontSize: 12, fill: 0xD4A853 });
   y += 20;
 
-  // Current inventory
   game.ui.createText(x, y, '【当前库存】', { fontSize: 13, fill: 0xD4A853, bold: true }); y += 20;
   Object.entries(SLAVE_TYPES).forEach(([id, st]) => {
     const count = state.slaves.inventory[id] || 0;
@@ -81,10 +82,9 @@ function _renderSlaveMarket(game, x, y, w, h) {
   });
   y += 10;
 
-  // Markets
   game.ui.createText(x, y, '【各城邦奴隶市场】', { fontSize: 13, fill: 0xD4A853, bold: true }); y += 22;
   Object.entries(SLAVE_MARKETS).forEach(([marketId, market]) => {
-    game.ui.createPanel(x, y, w - 20, 60, '', 0x1a0a04);
+    game.ui.createPanel(x, y, w - 20, 60, 0x1a0a04);
     game.ui.createText(x + 10, y + 5, market.name, { fontSize: 13, fill: 0xF0E68C, bold: true });
 
     const pref = SLAVE_PREFERENCES[marketId];
@@ -93,7 +93,6 @@ function _renderSlaveMarket(game, x, y, w, h) {
       game.ui.createText(x + 10, y + 22, `偏好: ${prefNames}`, { fontSize: 10, fill: 0x27AE60 });
     }
 
-    // Buy/sell buttons for top 3 available types
     let bx = x + 10;
     const available = Object.entries(market.supply).filter(([, v]) => v > 0).slice(0, 3);
     available.forEach(([type]) => {
@@ -102,10 +101,10 @@ function _renderSlaveMarket(game, x, y, w, h) {
       game.ui.createButton(bx, y + 38, 80, 20, `${st.icon}买1(${st.basePrice}金)`, () => {
         if (state.player.gold >= st.basePrice) {
           state.buySlaves(type, 1, st.basePrice);
-          alert(`购买1名${st.name}`);
+          game.ui.showToast(`购买1名${st.name}`);
           _renderCommerce(game);
-        } else alert('金币不足！');
-      }, 0x8B0000);
+        } else game.ui.showToast('金币不足！');
+      }, { color: 0x8B0000 });
       bx += 85;
     });
     y += 65;

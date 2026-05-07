@@ -1,6 +1,6 @@
 /**
  * Diplomacy Scene v3 - 外交系统
- * Slave tribute/gifts to major powers and city-states
+ * Fixed: replaced alert() with toast
  */
 import { state } from '../core/gameState.js';
 import { NATIONS } from '../data/nations.js';
@@ -24,12 +24,12 @@ function _renderDiplomacy(game) {
     const [id, label] = t.split('|');
     const active = _tab === id;
     game.ui.createButton(tx, 65, 100, 28, label, () => { _tab = id; _renderDiplomacy(game); },
-      active ? 0xD4A853 : 0x4A3728, active ? 0x000000 : 0xD4A853);
+      { color: active ? 0xD4A853 : 0x4A3728, textColor: active ? 0x000000 : 0xD4A853 });
     tx += 110;
   });
 
   const cx = 50, cy = 100, cw = game.w - 100, ch = game.h - 180;
-  game.ui.createPanel(cx, cy, cw, ch, '', 0x1a1008);
+  game.ui.createPanel(cx, cy, cw, ch, '', { bgColor: 0x1a1008 });
 
   if (_tab === 'overview') _renderOverview(game, cx + 10, cy + 10, cw - 20, ch - 20);
   else if (_tab === 'tribute') _renderTribute(game, cx + 10, cy + 10, cw - 20, ch - 20);
@@ -42,11 +42,11 @@ function _renderOverview(game, x, y, w, h) {
   game.ui.createText(x, y, '🌍 六大帝国关系', { fontSize: 14, fill: 0xFFD700, bold: true }); y += 25;
   const colors = { han: 0xDC143C, xiongnu: 0x8B4513, kushan: 0xDAA520, parthia: 0x9B59B6, rome: 0x3498DB, sassanid: 0x8B008B };
 
-  Object.entries(INFLUENCE_ZONES).forEach(([id, zone]) => {
+  Object.entries(INFLUENCE_ZONES || {}).forEach(([id, zone]) => {
     const rel = state.majorPowerRelations[id] || 50;
     const c = colors[id] || 0xAAAAAA;
     const pref = SLAVE_PREFERENCES[id];
-    game.ui.createPanel(x, y, w - 20, 50, '', 0x1a0a04);
+    game.ui.createPanel(x, y, w - 20, 50, 0x1a0a04);
     game.ui.createText(x + 10, y + 5, zone.name, { fontSize: 13, fill: c, bold: true });
     game.ui.createText(x + 10, y + 22, `关系: ${rel}/100`, { fontSize: 11, fill: rel > 70 ? 0x27AE60 : rel > 40 ? 0xF39C12 : 0xE74C3C });
     game.ui.createProgressBar(x + 120, y + 22, 100, 10, rel, 100, rel > 70 ? 0x27AE60 : rel > 40 ? 0xF39C12 : 0xE74C3C);
@@ -64,7 +64,6 @@ function _renderTribute(game, x, y, w, h) {
   game.ui.createText(x, y, '将奴隶作为贡品赠送给六大帝国或城邦，提升关系', { fontSize: 12, fill: 0xD4A853 });
   y += 20;
 
-  // Current slave inventory
   game.ui.createText(x, y, '【可用奴隶】', { fontSize: 12, fill: 0xD4A853, bold: true }); y += 20;
   const invStr = Object.entries(state.slaves.inventory).filter(([, v]) => v > 0).map(([k, v]) => {
     const st = SLAVE_TYPES[k];
@@ -77,27 +76,28 @@ function _renderTribute(game, x, y, w, h) {
   game.ui.createText(x, y, '【向六大帝国进贡】', { fontSize: 13, fill: 0xFFD700, bold: true }); y += 22;
   const colors = { han: 0xDC143C, xiongnu: 0x8B4513, kushan: 0xDAA520, parthia: 0x9B59B6, rome: 0x3498DB, sassanid: 0x8B008B };
 
-  Object.entries(SLAVE_TRIBUTE.majorPower).forEach(([powerId, info]) => {
-    const zone = INFLUENCE_ZONES[powerId];
+  const majorTribute = SLAVE_TRIBUTE && SLAVE_TRIBUTE.majorPower ? SLAVE_TRIBUTE.majorPower : {};
+  Object.entries(majorTribute).forEach(([powerId, info]) => {
+    const zone = INFLUENCE_ZONES ? INFLUENCE_ZONES[powerId] : null;
     const c = colors[powerId] || 0xAAAAAA;
     const rel = state.majorPowerRelations[powerId] || 50;
-    game.ui.createPanel(x, y, w - 20, 55, '', 0x1a0a04);
+    game.ui.createPanel(x, y, w - 20, 55, 0x1a0a04);
     game.ui.createText(x + 10, y + 5, zone ? zone.name : powerId, { fontSize: 12, fill: c, bold: true });
     game.ui.createText(x + 10, y + 22, `关系:${rel} | 最佳赠礼: ${info.bestGift.map(t => SLAVE_TYPES[t]?.name || t).join('、')}`, { fontSize: 11, fill: 0xCCCCCC });
     game.ui.createText(x + 10, y + 38, info.desc, { fontSize: 10, fill: 0x888888 });
 
-    // Gift buttons for each slave type
     let bx = x + w - 280;
     Object.entries(state.slaves.inventory).filter(([, v]) => v > 0).slice(0, 3).forEach(([type]) => {
       const st = SLAVE_TYPES[type];
       if (!st) return;
       game.ui.createButton(bx, y + 5, 80, 22, `${st.icon}赠1`, () => {
-        const effect = state.sendSlaveTribute(powerId, type, 1, true, SLAVE_TRIBUTE.calcGiftEffect.bind(SLAVE_TRIBUTE));
+        const calcFn = SLAVE_TRIBUTE && SLAVE_TRIBUTE.calcGiftEffect ? SLAVE_TRIBUTE.calcGiftEffect.bind(SLAVE_TRIBUTE) : null;
+        const effect = state.sendSlaveTribute(powerId, type, 1, true, calcFn);
         if (effect) {
-          alert(`向${zone?.name}赠送${st.name}！\n关系+${effect.relationGain}${effect.isBest ? '(最佳!)' : ''}\n金币+${effect.goldGain}`);
+          game.ui.showToast(`向${zone?.name}赠送${st.name}！关系+${effect.relationGain}${effect.isBest ? '(最佳!)' : ''}`);
           _renderDiplomacy(game);
-        } else alert('赠送失败！');
-      }, 0x8B0000);
+        } else game.ui.showToast('赠送失败！');
+      }, { color: 0x8B0000 });
       bx += 85;
     });
     y += 60;
@@ -107,10 +107,10 @@ function _renderTribute(game, x, y, w, h) {
   y += 5;
   game.ui.createText(x, y, '【向城邦赠送奴隶】', { fontSize: 13, fill: 0xFFD700, bold: true }); y += 22;
   const cityStates = { amazons: '阿玛宗', xiliang: '西梁女国', kucha: '龟兹', kashgar: '疏勒', soche: '粟特' };
+  const cityTribute = SLAVE_TRIBUTE && SLAVE_TRIBUTE.cityState ? SLAVE_TRIBUTE.cityState : {};
   Object.entries(cityStates).forEach(([csId, csName]) => {
-    const info = SLAVE_TRIBUTE.cityState[csId] || SLAVE_TRIBUTE.cityState.default;
-    const pref = SLAVE_PREFERENCES[csId];
-    game.ui.createPanel(x, y, w - 20, 40, '', 0x1a0a04);
+    const info = cityTribute[csId] || cityTribute.default || { bestGift: [], desc: '' };
+    game.ui.createPanel(x, y, w - 20, 40, 0x1a0a04);
     game.ui.createText(x + 10, y + 5, csName, { fontSize: 12, fill: 0xF0E68C, bold: true });
     game.ui.createText(x + 10, y + 22, `偏好: ${info.bestGift.map(t => SLAVE_TYPES[t]?.name || t).join('、')} | ${info.desc}`, { fontSize: 10, fill: 0x888888 });
 
@@ -119,12 +119,13 @@ function _renderTribute(game, x, y, w, h) {
       const st = SLAVE_TYPES[type];
       if (!st) return;
       game.ui.createButton(bx, y + 5, 80, 22, `${st.icon}赠1`, () => {
-        const effect = state.sendSlaveTribute(csId, type, 1, false, SLAVE_TRIBUTE.calcGiftEffect.bind(SLAVE_TRIBUTE));
+        const calcFn = SLAVE_TRIBUTE && SLAVE_TRIBUTE.calcGiftEffect ? SLAVE_TRIBUTE.calcGiftEffect.bind(SLAVE_TRIBUTE) : null;
+        const effect = state.sendSlaveTribute(csId, type, 1, false, calcFn);
         if (effect) {
-          alert(`向${csName}赠送${st.name}！\n关系+${effect.relationGain}${effect.isBest ? '(最佳!)' : ''}`);
+          game.ui.showToast(`向${csName}赠送${st.name}！关系+${effect.relationGain}${effect.isBest ? '(最佳!)' : ''}`);
           _renderDiplomacy(game);
-        } else alert('赠送失败！');
-      }, 0x2E4053);
+        } else game.ui.showToast('赠送失败！');
+      }, { color: 0x2E4053 });
       bx += 85;
     });
     y += 45;

@@ -87,7 +87,8 @@ class SilkRoadGame {
 
     canvas.addEventListener('pointerup', (e) => {
       if (!this.isDragging && this.scene === 'map') {
-        handleMapClick(this, e.clientX, e.clientY);
+        const rect = canvas.getBoundingClientRect();
+        handleMapClick(this, e.clientX - rect.left, e.clientY - rect.top);
       }
       lastPos = null;
     });
