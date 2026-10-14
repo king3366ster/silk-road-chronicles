@@ -145,7 +145,7 @@ function _renderSlaves(game, x, y, w, h) {
   const assigned = Object.values(s.assigned).reduce((a, b) => a + b, 0);
   const available = s.total - assigned;
 
-  game.ui.createText(x, y, '⛓️ 奴隶管理（六大类型）', { fontSize: 16, fill: 0xFFD700, bold: true });
+  game.ui.createText(x, y, ' 奴隶管理（六大类型）', { fontSize: 16, fill: 0xFFD700, bold: true });
   y += 25;
   game.ui.createText(x, y, `奴隶总数: ${s.total} | 已分配: ${assigned} | 可用: ${available}`, { fontSize: 13, fill: 0xD4A853 });
   y += 25;

@@ -270,7 +270,7 @@ export const RESOURCE_TYPES = {
   falcon: { name: '猎鹰', icon: '🦅', category: 'military' },
   sand_pearl: { name: '沙珠', icon: '🫧', category: 'precious' },
   // Special: Labor
-  slave: { name: '奴隶', icon: '⛓️', category: 'labor', desc: '劳动力来源，可从部落购买' },
+  slave: { name: '奴隶', icon: '', category: 'labor', desc: '劳动力来源，可从部落购买' },
   labor: { name: '劳动力', icon: '👷', category: 'labor', desc: '用于建设和生产' },
 };
 
@@ -930,7 +930,7 @@ export const GAME_EVENTS = {
     desc: '你控制了丝绸之路的关键节点！解锁：贸易禁运能力',
   },
   slave_market_expansion: {
-    id: 'slave_market_expansion', name: '奴隶市场扩张', type: 'commerce', icon: '⛓️',
+    id: 'slave_market_expansion', name: '奴隶市场扩张', type: 'commerce', icon: '',
     trigger: { minSlaves: 50 },
     reward: { unlock: 'slave_market_2', gold: 300 },
     desc: '奴隶贸易规模扩大！解锁：高级奴隶市场',

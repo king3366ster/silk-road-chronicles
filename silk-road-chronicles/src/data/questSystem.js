@@ -30,7 +30,7 @@ export const ABILITIES = {
 
   // === 部落事件解锁的能力 ===
   slave_trade: {
-    id: 'slave_trade', name: '奴隶买卖', icon: '⛓️',
+    id: 'slave_trade', name: '奴隶买卖', icon: '',
     desc: '可在奴隶市场买卖奴隶',
     phase: 'tribe', category: 'economy',
     requiredTribeQuests: 1,

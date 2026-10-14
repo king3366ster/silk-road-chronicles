@@ -7,7 +7,7 @@
 // ===== 6 SLAVE MARKETS (六大奴隶市场) =====
 export const SLAVE_MARKETS_V2 = {
   kashgar: {
-    id: 'kashgar', name: '疏勒奴隶大市', icon: '⛓️',
+    id: 'kashgar', name: '疏勒奴隶大市', icon: '',
     desc: '西域最大的奴隶集散市场，各色奴隶应有尽有',
     location: { x: 16, y: 34 }, nation: 'kashgar',
     supply: {
@@ -49,7 +49,7 @@ export const SLAVE_MARKETS_V2 = {
     specialty: ['warrior', 'maleLaborer'], femaleRatio: 0.15,
   },
   amazons: {
-    id: 'amazons', name: '阿玛宗男奴市场', icon: '♀⛓️',
+    id: 'amazons', name: '阿玛宗男奴市场', icon: '♀',
     desc: '阿玛宗女战士部落专营男奴市场，捕获的男性战俘和劳力',
     location: { x: 75, y: 25 }, nation: 'amazons',
     supply: {
